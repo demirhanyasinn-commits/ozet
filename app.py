@@ -1,36 +1,52 @@
 import streamlit as st
+from tefas import Crawler
 import pandas as pd
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Fon Analiz Terminali", layout="wide")
+st.set_page_config(page_title="Canlı Fon Analiz", layout="wide")
 
-# Sol menüden fon seçimi
-secilen_fon = st.sidebar.selectbox("Detaylı İncelemek İstediğiniz Fonu Seçin", ["Genel Bakış", "TLY", "DFİ", "PHE"])
-
-if secilen_fon == "Genel Bakış":
-    st.title("📈 Fon Portföy Takip")
-    # Ana kartları buraya koyuyoruz
-    col1, col2, col3 = st.columns(3)
-    col1.metric("TLY Getiri", "1.458 TL", "%1.08")
-    col2.metric("DFİ Getiri", "2.102 TL", "-%0.42")
-    col3.metric("PHE Getiri", "5.341 TL", "%2.18")
-
-elif secilen_fon == "TLY":
-    st.title("🔵 TLY - Tera Portföy Birinci Serbest Fon")
+# TEFAS'tan güncel verileri çeken fonksiyon
+@st.cache_data(ttl=3600) # Veriyi 1 saat saklar, her saniye interneti yormaz
+def canlı_verileri_getir():
+    crawler = Crawler()
+    # Bugünün ve 1 hafta öncesinin tarihini alalım (Hafta sonuna denk gelirse diye)
+    bitis = datetime.now().strftime('%Y-%m-%d')
+    baslangic = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
     
-    # Üst Bilgi Kartları
-    c1, c2 = st.columns(2)
-    c1.info("**Toplam Portföy Değeri:** ₺75.398.509.680")
-    c2.success("**Günlük Getiri:** +%1,08")
+    # Verileri çek
+    try:
+        data = crawler.fetch(start=baslangic, end=bitis, columns=["注文", "Kodu", "Adı", "Fiyat", "Tarih"])
+        return data
+    except:
+        return pd.DataFrame()
 
-    # Detaylı Tablo (Görüntündeki "En Çok Kazandıranlar" kısmı gibi)
-    st.subheader("📊 En Çok Kazandıran Hisseler (TL)")
-    hisse_data = {
-        "Hisse": ["TERA", "TRHOL", "PEKGY", "HMV", "SVGYO"],
-        "Fark %": ["+%5,37", "+%8,74", "+%1,89", "+%2,24", "+%2,99"],
-        "Etki %": ["%1,22", "%0,49", "%0,12", "%0,03", "%0,01"]
-    }
-    st.table(pd.DataFrame(hisse_data))
+st.title("📈 Canlı Fon Portföy Takip")
 
-    # Portföy Dağılım Grafiği (Basit bir pasta grafik ekleyebiliriz)
-    st.write("### Portföy Dağılımı")
-    st.bar_chart({"Hisse": 85, "VİOP": 10, "Nakit": 5})
+# Veriyi çekelim
+df = canlı_verileri_getir()
+
+if not df.empty:
+    hedef_fonlar = ["TLY", "DFİ", "PHE"]
+    cols = st.columns(3)
+    
+    for i, kod in enumerate(hedef_fonlar):
+        # Sadece o fonun son iki günkü verisini al
+        fon_data = df[df["Kodu"] == kod].sort_values("Tarih", ascending=False)
+        
+        if len(fon_data) >= 2:
+            guncel_fiyat = fon_data.iloc[0]["Fiyat"]
+            eski_fiyat = fon_data.iloc[1]["Fiyat"]
+            # Getiri hesapla
+            yuzde_degisim = ((guncel_fiyat - eski_fiyat) / eski_fiyat) * 100
+            
+            with cols[i]:
+                st.metric(label=f"{kod} Getiri", 
+                          value=f"{guncel_fiyat:.4f} TL", 
+                          delta=f"%{yuzde_degisim:.2f}")
+                st.caption(fon_data.iloc[0]["Adı"])
+        else:
+            cols[i].error(f"{kod} verisi yüklenemedi.")
+else:
+    st.warning("TEFAS'tan veri şu an çekilemiyor. Lütfen biraz sonra tekrar deneyin.")
+
+st.info("Not: Fon fiyatları her iş günü sabah 10:00 civarı TEFAS tarafından güncellenir.")
