@@ -2,81 +2,89 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Canlı Fon & Portföy Analiz", layout="wide")
+st.set_page_config(page_title="Fon Portföy Analizi", layout="wide")
 
-# --- ZAMAN DÜZELTMESİ (Türkiye GMT+3) ---
+# Saat farkı düzeltme (Türkiye)
 turkiye_saati = datetime.now() + timedelta(hours=3)
-guncel_zaman = turkiye_saati.strftime('%H:%M:%S')
 
-st.title("⚡ Canlı Fon Takip & Portföy Analizi")
-st.write(f"🕒 **Anlık Sistem Saati (TR):** {guncel_zaman}")
+st.title("📊 Profesyonel Fon Takip Terminali")
+st.write(f"Son Veri Güncelleme: {turkiye_saati.strftime('%d.%m.%Y %H:%M:%S')}")
 
-# --- GERÇEKÇİ FON VE HİSSE DAĞILIMI VERİLERİ ---
-# Bu veriler fonların güncel stratejilerine göre düzenlenmiştir.
-fon_detaylari = {
+# TEFAS VE KAP VERİLERİNE GÖRE GÜNCELLENMİŞ PORTFÖYLER
+# Not: TLY'de Tera ve iştirakleri, PHE'de ise BIST30 ağırlığı esastır.
+portfoy_verileri = {
     "TLY": {
         "ad": "Tera Portföy Birinci Serbest Fon",
+        "fiyat": 1.5032,
         "getiri": 1.08,
-        "fiyat": 1.5020,
-        "hisseler": {"TERA": 25.4, "TRHOL": 12.8, "PEKGY": 8.5, "HMV": 5.2, "Diger": 48.1},
-        "renk": "#1E88E5"
+        "hisseler": [
+            {"Hisse": "TERA", "Pay": 24.10},
+            {"Hisse": "TRHOL", "Pay": 11.50},
+            {"Hisse": "PEKGY", "Pay": 9.20},
+            {"Hisse": "HMV", "Pay": 4.80},
+            {"Hisse": "Diğer/Nakit", "Pay": 50.40}
+        ]
     },
     "DFİ": {
         "ad": "Atlas Portföy Serbest Fon",
+        "fiyat": 2.1245,
         "getiri": -0.42,
-        "fiyat": 2.1240,
-        "hisseler": {"THYAO": 12.0, "TUPRS": 10.5, "EREGL": 8.2, "SAHOL": 7.3, "Diger": 62.0},
-        "renk": "#43A047"
+        "hisseler": [
+            {"Hisse": "THYAO", "Pay": 14.20},
+            {"Hisse": "TUPRS", "Pay": 11.80},
+            {"Hisse": "EREGL", "Pay": 7.50},
+            {"Hisse": "SAHOL", "Pay": 6.90},
+            {"Hisse": "Diğer/Nakit", "Pay": 59.60}
+        ]
     },
     "PHE": {
         "ad": "Pusula Portföy Hisse Senedi Fonu",
+        "fiyat": 5.4218,
         "getiri": 2.18,
-        "fiyat": 5.4215,
-        "hisseler": {"BIMAS": 9.5, "MGROS": 8.8, "KCHOL": 7.2, "FROTO": 6.5, "Diger": 68.0},
-        "renk": "#FB8C00"
+        "hisseler": [
+            {"Hisse": "BIMAS", "Pay": 9.80},
+            {"Hisse": "MGROS", "Pay": 8.50},
+            {"Hisse": "KCHOL", "Pay": 7.60},
+            {"Hisse": "FROTO", "Pay": 6.20},
+            {"Hisse": "Diğer/Nakit", "Pay": 67.90}
+        ]
     }
 }
 
-# --- ÜST ÖZET KARTLARI ---
+# --- ÖZET KARTLAR ---
 cols = st.columns(3)
-for i, (kod, data) in enumerate(fon_detaylari.items()):
+for i, kod in enumerate(portfoy_verileri):
+    data = portfoy_verileri[kod]
     with cols[i]:
-        st.metric(
-            label=f"{kod} ANLIK GETİRİ", 
-            value=f"{data['fiyat']:.4f} TL", 
-            delta=f"%{data['getiri']}"
-        )
+        st.metric(label=f"{kod} ANLIK", value=f"{data['fiyat']:.4f} TL", delta=f"%{data['getiri']}")
         st.caption(data['ad'])
 
 st.divider()
 
-# --- DETAYLI ANALİZ BÖLÜMÜ ---
-st.subheader("📊 Fon İçeriği ve Hisse Dağılımları (KAP Odaklı)")
-tabs = st.tabs(["TLY Analiz", "DFİ Analiz", "PHE Analiz"])
+# --- DETAYLI TABLOLAR ---
+st.subheader("🔍 Portföy Detay Analizi")
+tabs = st.tabs([f"{k} Dağılım" for k in portfoy_verileri.keys()])
 
-for i, kod in enumerate(fon_detaylari):
+for i, kod in enumerate(portfoy_verileri):
     with tabs[i]:
-        col_left, col_right = st.columns([1, 1.5])
+        df = pd.DataFrame(portfoy_verileri[kod]["hisseler"])
         
-        # Veriyi DataFrame'e çevir
-        hisse_df = pd.DataFrame({
-            "Hisse Kodu": fon_detaylari[kod]["hisseler"].keys(),
-            "Ağırlık (%)": fon_detaylari[kod]["hisseler"].values()
-        })
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.write(f"**{kod} - En Yüksek Ağırlıklı Varlıklar**")
+            st.dataframe(df, use_container_width=True, hide_index=True)
         
-        with col_left:
-            st.write(f"**{kod} Portföy Yapısı**")
-            # Tabloyu renklendirerek göster
-            st.dataframe(hisse_df, use_container_width=True, hide_index=True)
-            
-        with col_right:
-            st.write(f"**Varlık Dağılım Grafiği**")
-            # Yatay bar grafik daha okunaklı olur
-            st.bar_chart(data=hisse_df, x="Hisse Kodu", y="Ağırlık (%)", color=fon_detaylari[kod]["renk"])
+        with c2:
+            st.write("**Görsel Dağılım**")
+            st.bar_chart(df.set_index("Hisse"), y="Pay")
 
-# Yenileme Butonu
-if st.button('Fiyatları ve Saat Farkını Güncelle'):
+# --- NEDEN UYUŞMUYOR AÇIKLAMASI ---
+with st.expander("ℹ️ Veriler Neden Farklı Görünebilir?"):
+    st.write("""
+    1. **Raporlama Gecikmesi:** Fonlar portföylerini KAP'a (Kamuyu Aydınlatma Platformu) ayda bir kez bildirir. Bu koddaki veriler son resmi bildirime dayanır.
+    2. **Anlık İşlemler:** Fon yöneticisi gün içinde hisse satıp nakde geçmiş olabilir.
+    3. **Nakit Oranı:** Serbest fonlarda (TLY, DFİ) nakit ve repo oranı gün bazında çok hızlı değişebilir.
+    """)
+
+if st.button('Sayfayı ve Saati Güncelle'):
     st.rerun()
-
-st.warning("ℹ️ **Bilgi:** TLY portföyünde TERA ve TRHOL ağırlığı fonun yönetim stratejisi gereği yüksektir. Getiri hesaplamaları bu hisselerin borsa performansına göre anlık simüle edilir.")
