@@ -43,10 +43,6 @@ def fetch_tefas(fon_kodu):
 
     except Exception as e:
         return pd.DataFrame()
-if df.empty:
-    st.warning(f"{fon} verisi alınamadı")
-     current = df.iloc[-1]["Fiyat"]
-        prev = df.iloc[-2]["Fiyat"]
 if not df.empty:
     current = df.iloc[-1]["Fiyat"]
     prev = df.iloc[-2]["Fiyat"]
