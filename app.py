@@ -4,73 +4,74 @@ from tefas import Crawler
 from datetime import datetime, timedelta
 import pytz
 
-# 1. Ayarlar ve Sayfa Yapısı
+# Sayfa Ayarları
 st.set_page_config(page_title="TEFAS Canlı Fon Takip", layout="wide")
 
-# İstanbul saat dilimi ayarı
 def get_istanbul_now():
     return datetime.now(pytz.timezone('Europe/Istanbul'))
 
-# 2. TEFAS'tan Veri Çekme Fonksiyonu
-@st.cache_data(ttl=3600) # Veriyi 1 saat önbelleğe alır, performansı artırır
+@st.cache_data(ttl=3600)
 def fetch_tefas_data(font_list):
-    crawler = Crawler()
-    # TEFAS verileri genellikle bir gün geriden gelir veya akşam güncellenir
-    # En güncel veriyi almak için dünün tarihini baz alıyoruz
-    end_date = get_istanbul_now().strftime("%Y-%m-%d")
-    start_date = (get_istanbul_now() - timedelta(days=5)).strftime("%Y-%m-%d")
-    
     try:
+        crawler = Crawler()
+        # TEFAS verileri genellikle 1 gün geriden gelir
+        # Son 7 günlük veriyi çekip en günceli filtreliyoruz
+        end_date = get_istanbul_now().strftime("%Y-%m-%d")
+        start_date = (get_istanbul_now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        
         data = crawler.fetch(start_date, end_date)
-        # Sadece bizim istediğimiz fonları filtrele
-        filtered_df = data[data['code'].isin(font_list)]
-        # En son güne ait verileri al
-        latest_data = filtered_df.sort_values('date', ascending=False).drop_duplicates('code')
-        return latest_data
+        
+        if data is not None and not data.empty:
+            # Sadece listedeki fonları al
+            filtered_df = data[data['code'].isin(font_list)]
+            # En güncel tarihi bul ve o tarihteki verileri getir
+            latest_date = filtered_df['date'].max()
+            final_df = filtered_df[filtered_df['date'] == latest_date]
+            return final_df
+        return pd.DataFrame()
     except Exception as e:
-        st.error(f"TEFAS verisi çekilirken hata oluştu: {e}")
         return pd.DataFrame()
 
 def main():
-    st.title("📊 TEFAS Anlık Fon Analiz Paneli")
-    st.write(f"Son Güncelleme (İstanbul): **{get_istanbul_now().strftime('%d.%m.%Y %H:%M:%S')}**")
+    st.title("📈 TEFAS Canlı Fon Takip")
     
-    # Takip edilecek fonlar
+    su_an = get_istanbul_now().strftime('%d.%m.%Y %H:%M:%S')
+    st.info(f"Son Güncelleme (İstanbul): **{su_an}**")
+
     my_funds = ["TLY", "DFI", "PHE"]
     
-    with st.spinner('TEFAS verileri güncelleniyor...'):
-        df = fetch_tefas_data(my_funds)
+    df = fetch_tefas_data(my_funds)
 
     if not df.empty:
-        # 3. Üst Metrik Kartları
+        # Metrik Kartları
         cols = st.columns(len(my_funds))
-        
         for i, fund_code in enumerate(my_funds):
             fund_row = df[df['code'] == fund_code]
             if not fund_row.empty:
                 price = fund_row.iloc[0]['price']
-                daily_return = fund_row.iloc[0]['daily_return']
-                
-                cols[i].metric(
-                    label=f"Fiyat: {fund_code}",
-                    value=f"{price:.4f} TL",
-                    delta=f"%{daily_return:.2f} (Günlük)"
-                )
-        
+                # Günlük getiriyi yüzdeye çevirerek göster
+                ret = fund_row.iloc[0]['daily_return']
+                cols[i].metric(label=fund_code, value=f"{price:.4f} TL", delta=f"%{ret:.2f}")
+
         st.divider()
-
-        # 4. Detaylı Tablo
-        st.subheader("Fon Detayları")
-        display_df = df[['code', 'title', 'price', 'daily_return', 'date']].copy()
-        display_df.columns = ['Fon Kodu', 'Fon Adı', 'Birim Fiyat', 'Günlük Getiri (%)', 'Veri Tarihi']
-        
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
-        
+        st.subheader("Detaylı Fon Tablosu")
+        # Tabloyu daha şık gösterelim
+        st.dataframe(
+            df[['code', 'title', 'price', 'daily_return', 'date']], 
+            column_config={
+                "code": "Fon Kodu",
+                "title": "Fon Adı",
+                "price": "Birim Fiyat",
+                "daily_return": "Günlük Getiri (%)",
+                "date": "Veri Tarihi"
+            },
+            hide_index=True,
+            use_container_width=True
+        )
     else:
-        st.error("Veriler şu anda TEFAS'tan çekilemiyor. Lütfen daha sonra tekrar deneyin.")
+        st.error("Veriler şu an çekilemiyor. Lütfen requirements.txt dosyasını kontrol edip uygulamayı yeniden başlatın.")
 
-    # Yenileme butonu
-    if st.button("Verileri Zorla Güncelle"):
+    if st.button("Verileri Yenile"):
         st.cache_data.clear()
         st.rerun()
 
