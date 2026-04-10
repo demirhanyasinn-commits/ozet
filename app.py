@@ -1,3 +1,4 @@
+import streamlit as st
 @st.cache_data(ttl=300)
 def fetch_tefas(fon_kodu):
     url = "https://www.tefas.gov.tr/api/DB/BindHistoryInfo"
