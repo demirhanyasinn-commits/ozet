@@ -4,8 +4,7 @@ from tefas import Crawler
 from datetime import datetime, timedelta
 import pytz
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Fon Takip Paneli", layout="wide")
+st.set_page_config(page_title="Fon Analiz Paneli", layout="wide")
 
 def get_istanbul_now():
     return datetime.now(pytz.timezone('Europe/Istanbul'))
@@ -17,61 +16,62 @@ def fetch_tefas_data(font_list):
         today = get_istanbul_now()
         start_date = (today - timedelta(days=5)).strftime("%Y-%m-%d")
         end_date = today.strftime("%Y-%m-%d")
-        
         data = crawler.fetch(start_date, end_date)
-        
         if data is not None and not data.empty:
             filtered = data[data['code'].isin(font_list)]
             if not filtered.empty:
-                latest_date = filtered['date'].max()
-                return filtered[filtered['date'] == latest_date]
+                return filtered[filtered['date'] == filtered['date'].max()]
         return None
-    except Exception as e:
-        st.error(f"Bağlantı Hatası: {e}")
-        return None
+    except: return None
 
 def main():
-    st.title("📈 Canlı Fon Takip Paneli")
-    st.write(f"Son Güncelleme: **{get_istanbul_now().strftime('%d.%m.%Y %H:%M:%S')}**")
+    st.title("📈 Fon Tahmin ve Analiz Paneli")
+    
+    # 1. PİYASA VERİLERİ (Tahmin için kullanıcıdan veya API'den gelen veriler)
+    st.sidebar.header("📊 Anlık Piyasa Hareketleri")
+    hisse_degisim = st.sidebar.slider("BIST 100 Değişim (%)", -5.0, 5.0, 1.2)
+    dolar_degisim = st.sidebar.slider("USD/TRY Değişim (%)", -5.0, 5.0, 0.5)
+    ons_degisim = st.sidebar.slider("Ons Altın Değişim (%)", -5.0, 5.0, -0.2)
+
+    # 2. FON PORTFÖY DAĞILIMLARI (Örnek Oranlar)
+    # Bu oranları fonun KAP bildirimine göre güncelleyebilirsin
+    portfoy_yapisi = {
+        "TLY": {"Hisse": 0.80, "Döviz": 0.10, "Faiz": 0.10},
+        "DFI": {"Hisse": 0.40, "Döviz": 0.50, "Faiz": 0.10},
+        "PHE": {"Hisse": 0.10, "Döviz": 0.80, "Faiz": 0.10}
+    }
 
     my_funds = ["TLY", "DFI", "PHE"]
-    
-    with st.spinner('TEFAS verileri işleniyor...'):
-        df = fetch_tefas_data(my_funds)
+    df = fetch_tefas_data(my_funds)
 
     if df is not None and not df.empty:
-        # Sütun isimlerini kontrol et
-        cols_in_df = df.columns.tolist()
-        ret_col = 'daily_return' if 'daily_return' in cols_in_df else ('return' if 'return' in cols_in_df else None)
-        price_col = 'price' if 'price' in cols_in_df else ('birim_fiyat' if 'birim_fiyat' in cols_in_df else None)
-
-        # Metrik Kartları
         m_cols = st.columns(3)
-        for i, code in enumerate(my_funds):
-            fund_row = df[df['code'] == code]
-            if not fund_row.empty:
-                row = fund_row.iloc[0]
-                
-                # Değerleri güvenli çek
-                price_val = float(row[price_col]) if price_col else 0.0
-                ret_val = float(row[ret_col]) if ret_col else 0.0
-                
-                # Parantez hatasının düzeltildiği kısım burası
-                m_cols[i].metric(
-                    label=f"Fon: {code}", 
-                    value=f"{price_val:.4f} TL", 
-                    delta=f"%{ret_val:.2f}"
-                )
         
-        st.divider()
-        st.subheader("📋 Veri Tablosu")
-        st.dataframe(df, use_container_width=True, hide_index=True)
-    else:
-        st.warning("⚠️ Şu an TEFAS'tan veri alınamadı. Lütfen 'Yenile' butonuna basınız.")
+        for i, code in enumerate(my_funds):
+            row = df[df['code'] == code].iloc[0]
+            
+            # --- TAHMİN HESAPLAMA MANTIĞI ---
+            dagilim = portfoy_yapisi[code]
+            tahmini_getiri = (
+                (dagilim["Hisse"] * hisse_degisim) + 
+                (dagilim["Döviz"] * dolar_degisim) + 
+                (dagilim["Faiz"] * 0.15) # Günlük sabit faiz getirisi varsayımı
+            )
+            
+            with m_cols[i]:
+                st.subheader(f"Fon: {code}")
+                st.metric("Dünkü Kapanış", f"{row['price']:.4f} TL", f"%{row['daily_return']:.2f}")
+                st.metric("BUGÜN TAHMİNİ", f"{(row['price'] * (1 + tahmini_getiri/100)):.4f} TL", f"%{tahmini_getiri:.2f}", delta_color="normal")
+                
+                # Küçük bir ilerleme çubuğu ile dağılımı göster
+                st.caption(f"Dağılım: Hisse %{dagilim['Hisse']*100:.0f} | Döviz %{dagilim['Döviz']*100:.0f}")
 
-    if st.button("🔄 Verileri Yenile"):
-        st.cache_data.clear()
-        st.rerun()
+        st.divider()
+        st.subheader("📋 Güncel TEFAS Verileri")
+        st.dataframe(df[['code', 'title', 'price', 'daily_return', 'date']], use_container_width=True, hide_index=True)
+    
+    else:
+        st.warning("Veriler yüklenemedi, lütfen yenileyin.")
 
 if __name__ == "__main__":
     main()
