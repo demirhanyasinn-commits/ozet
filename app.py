@@ -4,69 +4,59 @@ from tefas import Crawler
 from datetime import datetime, timedelta
 import pytz
 
-# Sayfa Ayarları
-st.set_page_config(page_title="TEFAS Canlı Fon Takip", layout="wide")
+st.set_page_config(page_title="Fon Takip Paneli", layout="wide")
 
 def get_istanbul_now():
     return datetime.now(pytz.timezone('Europe/Istanbul'))
 
-# Veri çekme işlemini optimize ettik
-@st.cache_data(ttl=600) # 10 dakikada bir yenilenir
+@st.cache_data(ttl=600)
 def fetch_tefas_data(font_list):
     try:
         crawler = Crawler()
-        # Sadece son 3 günü sorgulayarak işlemi hızlandırıyoruz
-        end_date = get_istanbul_now().strftime("%Y-%m-%d")
-        start_date = (get_istanbul_now() - timedelta(days=3)).strftime("%Y-%m-%d")
+        # Tarih aralığını 5 gün yapıyoruz (Hafta sonu boşluğunu kapatmak için)
+        today = get_istanbul_now()
+        start_date = (today - timedelta(days=5)).strftime("%Y-%m-%d")
+        end_date = today.strftime("%Y-%m-%d")
         
         data = crawler.fetch(start_date, end_date)
         
         if data is not None and not data.empty:
-            filtered_df = data[data['code'].isin(font_list)]
-            if not filtered_df.empty:
-                # En güncel tarihi al
-                latest_date = filtered_df['date'].max()
-                return filtered_df[filtered_df['date'] == latest_date]
+            filtered = data[data['code'].isin(font_list)]
+            if not filtered.empty:
+                latest_date = filtered['date'].max()
+                return filtered[filtered['date'] == latest_date]
         return None
     except Exception as e:
         st.error(f"Bağlantı Hatası: {e}")
         return None
 
 def main():
-    st.title("📈 TEFAS Canlı Fon Takip")
-    
-    su_an = get_istanbul_now().strftime('%d.%m.%Y %H:%M:%S')
-    st.write(f"🕒 Son Güncelleme: **{su_an}**")
+    st.title("📈 Canlı Fon Takip Paneli")
+    st.write(f"Son Güncelleme: **{get_istanbul_now().strftime('%d.%m.%Y %H:%M:%S')}**")
 
     my_funds = ["TLY", "DFI", "PHE"]
     
-    # Veri yüklenirken dönen halka
-    with st.spinner('Piyasadan veriler alınıyor, lütfen bekleyin...'):
+    with st.spinner('TEFAS verileri işleniyor...'):
         df = fetch_tefas_data(my_funds)
 
     if df is not None and not df.empty:
+        # Sütun isimlerini güvenli bir şekilde belirleyelim
+        # Bazı sürümlerde 'daily_return' yerine farklı isimler olabilir
+        cols_in_df = df.columns.tolist()
+        ret_col = 'daily_return' if 'daily_return' in cols_in_df else ('return' if 'return' in cols_in_df else None)
+        price_col = 'price' if 'price' in cols_in_df else ('birim_fiyat' if 'birim_fiyat' in cols_in_df else None)
+
         # Metrik Kartları
-        cols = st.columns(len(my_funds))
-        for i, fund_code in enumerate(my_funds):
-            fund_row = df[df['code'] == fund_code]
+        m_cols = st.columns(3)
+        for i, code in enumerate(my_funds):
+            fund_row = df[df['code'] == code]
             if not fund_row.empty:
                 row = fund_row.iloc[0]
-                cols[i].metric(
-                    label=f"Fon: {fund_code}", 
-                    value=f"{row['price']:.4f} TL", 
-                    delta=f"%{row['daily_return']:.2f}"
-                )
-        
-        st.divider()
-        st.subheader("📋 Detaylı Liste")
-        st.dataframe(df[['code', 'title', 'price', 'daily_return', 'date']], use_container_width=True, hide_index=True)
-    else:
-        # Veri gelmezse kullanıcıyı bilgilendir
-        st.warning("Şu an TEFAS'tan veri alınamıyor. Piyasalar kapalı olabilir veya bağlantı yavaştır. Lütfen 'Yenile' butonuna basınız.")
-
-    if st.button("🔄 Verileri Şimdi Yenile"):
-        st.cache_data.clear()
-        st.rerun()
-
-if __name__ == "__main__":
-    main()
+                
+                # Değerleri güvenli çek
+                price_val = row[price_col] if price_col else 0.0
+                ret_val = row[ret_col] if ret_col else 0.0
+                
+                m_cols[i].metric(
+                    label=f"Fon: {code}", 
+                    value=f"{price_val:.4f} TL",
