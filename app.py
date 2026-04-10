@@ -42,10 +42,12 @@ def fetch_tefas(fon_kodu):
 
         return df.sort_values("Tarih")
 
-    except Exception as e:
-        return pd.DataFrame()
-if not df.empty:
-    current = df.iloc[-1]["Fiyat"]
-    prev = df.iloc[-2]["Fiyat"]
+  uploaded_file = st.file_uploader("Choose a file")
+
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file) # Or read_excel
+    
+    if not df.empty:
+        st.write("Data loaded successfully!")
 else:
-    st.warning(f"{fon} verisi alınamadı")
+    st.info("Please upload a file to proceed.")
