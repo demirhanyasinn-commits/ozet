@@ -43,6 +43,6 @@ def fetch_tefas(fon_kodu):
 
     except Exception as e:
         return pd.DataFrame()
-        if df.empty:
+if df.empty:
     st.warning(f"{fon} verisi alınamadı")
     continue
