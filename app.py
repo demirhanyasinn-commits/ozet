@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 
 # 1. Sayfa Konfigürasyonu
-st.set_page_config(page_title="PRO Fon Simülatörü", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="E M R E", layout="wide", initial_sidebar_state="collapsed")
 
 # 2. Premium Tasarım CSS (image_2665ca.png ve mobil uyum referanslı)
 st.markdown("""
