@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 
 # Sayfa Ayarları
-st.set_page_config(page_title="PRO Fon Takip", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="E M R E", layout="wide", initial_sidebar_state="collapsed")
 
 # Premium CSS
 st.markdown("""
