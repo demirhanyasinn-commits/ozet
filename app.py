@@ -92,3 +92,8 @@ for i, fon in enumerate(fonlar):
 # 🔄 AUTO REFRESH
 time.sleep(60)
 st.rerun()
+@st.cache_data(ttl=300)
+def fetch_tefas_cached(fon):
+    return fetch_tefas(fon)
+    fig.update_xaxes(rangeslider_visible=True)
+    fig.update_traces(hovertemplate="%{y:.4f} TL")
