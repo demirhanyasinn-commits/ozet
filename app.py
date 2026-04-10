@@ -67,3 +67,9 @@ if uploaded_file is not None:
         st.write("Data loaded successfully!")
 else:
     st.info("Please upload a file to proceed.")
+
+def main():
+    st.title("My App")
+    uploaded_file = st.file_uploader("Choose a file") # Line 45 aligned with st.title
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
