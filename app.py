@@ -48,3 +48,8 @@ if df.empty:
     continue
      current = df.iloc[-1]["Fiyat"]
         prev = df.iloc[-2]["Fiyat"]
+if not df.empty:
+    current = df.iloc[-1]["Fiyat"]
+    prev = df.iloc[-2]["Fiyat"]
+else:
+    st.warning(f"{fon} verisi alınamadı")
