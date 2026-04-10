@@ -1,86 +1,94 @@
-import streamlit as st
+import requests
 import pandas as pd
-import random
-import time
-import plotly.express as px
 
-st.set_page_config(page_title="Fon Takip", layout="wide")
+def fetch_tefas(fon_kodu):
+    url = "https://www.tefas.gov.tr/api/DB/BindHistoryInfo"
 
-st.title("📊 Profesyonel Fon Takip Terminali")
-
-# 🔄 Auto refresh
-count = st.experimental_rerun if False else None
-
-# Fake veri (şimdilik)
-def get_data():
-    return {
-        "TLY": {
-            "price": round(random.uniform(1.4, 1.6), 4),
-            "history": {
-                "d1": 1.45,
-                "w1": 1.40,
-                "m1": 1.30
-            },
-            "distribution": {
-                "Nakit": 50,
-                "Hisse": 20,
-                "Tahvil": 15,
-                "Diğer": 15
-            }
-        },
-        "PHE": {
-            "price": round(random.uniform(5.0, 5.6), 4),
-            "history": {
-                "d1": 5.2,
-                "w1": 5.0,
-                "m1": 4.5
-            },
-            "distribution": {
-                "Hisse": 60,
-                "Nakit": 10,
-                "Tahvil": 20,
-                "Diğer": 10
-            }
-        }
+    payload = {
+        "fontip": "YAT",
+        "fonkod": fon_kodu,
+        "bastarih": "01.01.2024",
+        "bittarih": "10.04.2026"
     }
 
-def calc_change(current, past):
-    return ((current - past) / past) * 100
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
 
-data = get_data()
+    r = requests.post(url, data=payload, headers=headers)
+    data = r.json()
 
-# 📦 Fon Kartları
-cols = st.columns(len(data))
+    df = pd.DataFrame(data["data"])
+    df["Tarih"] = pd.to_datetime(df["Tarih"])
+    df["Fiyat"] = df["Fiyat"].astype(float)
 
-for i, (fon, val) in enumerate(data.items()):
+    return df.sort_values("Tarih")
+    def calc_returns(df):
+    current = df.iloc[-1]["Fiyat"]
+
+    def get_price(days):
+        return df[df["Tarih"] >= df["Tarih"].max() - pd.Timedelta(days=days)].iloc[0]["Fiyat"]
+
+    return {
+        "1G": (current - get_price(1)) / get_price(1) * 100,
+        "1H": (current - get_price(7)) / get_price(7) * 100,
+        "1A": (current - get_price(30)) / get_price(30) * 100,
+    }
+    import plotly.graph_objects as go
+
+def create_chart(df):
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=df["Tarih"],
+        y=df["Fiyat"],
+        mode="lines",
+        name="Fiyat"
+    ))
+
+    fig.update_layout(
+        template="plotly_dark",
+        height=400
+    )
+
+    return fig
+    import streamlit as st
+import time
+
+st.set_page_config(layout="wide")
+st.title("📊 TEFAS Canlı Fon Takip")
+
+fonlar = ["TLY", "PHE", "DFI"]
+
+cols = st.columns(len(fonlar))
+
+for i, fon in enumerate(fonlar):
     with cols[i]:
-        change = calc_change(val["price"], val["history"]["d1"])
+        df = fetch_tefas(fon)
+
+        current = df.iloc[-1]["Fiyat"]
+        prev = df.iloc[-2]["Fiyat"]
+
+        change = (current - prev) / prev * 100
 
         color = "green" if change > 0 else "red"
 
         st.markdown(f"### {fon}")
         st.markdown(f"<h1 style='color:{color}'>{change:.2f}%</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p>{val['price']} TL</p>", unsafe_allow_html=True)
+        st.markdown(f"<p>{current:.4f} TL</p>", unsafe_allow_html=True)
 
-        # 👇 DETAY
-        with st.expander("Detayları Gör"):
-            d1 = calc_change(val["price"], val["history"]["d1"])
-            w1 = calc_change(val["price"], val["history"]["w1"])
-            m1 = calc_change(val["price"], val["history"]["m1"])
+        # DETAY
+        with st.expander("Detay"):
+            returns = calc_returns(df)
 
-            st.write(f"📅 1 Gün: %{d1:.2f}")
-            st.write(f"📅 1 Hafta: %{w1:.2f}")
-            st.write(f"📅 1 Ay: %{m1:.2f}")
+            st.write(f"1 Gün: %{returns['1G']:.2f}")
+            st.write(f"1 Hafta: %{returns['1H']:.2f}")
+            st.write(f"1 Ay: %{returns['1A']:.2f}")
 
-            # 📊 Grafik
-            df = pd.DataFrame({
-                "Kategori": list(val["distribution"].keys()),
-                "Oran": list(val["distribution"].values())
-            })
-
-            fig = px.pie(df, names="Kategori", values="Oran", title="Varlık Dağılımı")
+            fig = create_chart(df)
             st.plotly_chart(fig, use_container_width=True)
 
-# 🔄 Auto refresh
-time.sleep(10)
+# 🔄 AUTO REFRESH
+time.sleep(60)
 st.rerun()
