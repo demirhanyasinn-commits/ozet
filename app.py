@@ -5,110 +5,111 @@ from tefas import Crawler
 from datetime import datetime, timedelta
 import pytz
 
-st.set_page_config(page_title="Fon Tahmin Dashboard", layout="wide")
+# 1. Sayfa Konfigürasyonu
+st.set_page_config(page_title="Fon Gün Sonu Simülatörü", layout="wide")
 
 def get_istanbul_now():
     return datetime.now(pytz.timezone('Europe/Istanbul'))
 
-@st.cache_data(ttl=300)
-def fetch_market_data():
+# 2. Canlı Piyasa Verilerini Çeken Fonksiyon
+@st.cache_data(ttl=60) # Her dakika tazelenir
+def fetch_live_market():
     try:
-        # Tickers: BIST100, USD/TRY, Ons Altın
-        tickers = {"BIST100": "XU100.IS", "USDTRY": "USDTRY=X", "Altın": "GC=F"}
-        results = {}
+        # XU100 (Borsa), USDTRY (Dolar), GC=F (Altın/Döviz etkisi)
+        tickers = {"BIST100": "XU100.IS", "USDTRY": "USDTRY=X", "ONS": "GC=F"}
+        market_data = {}
         for name, ticker in tickers.items():
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="3d")
+            t = yf.Ticker(ticker)
+            hist = t.history(period="2d")
             if len(hist) >= 2:
-                # En son kapanış ve bir önceki kapanış arasındaki fark
-                current = hist['Close'].iloc[-1]
-                prev = hist['Close'].iloc[-2]
-                results[name] = ((current - prev) / prev) * 100
+                change = ((hist['Close'].iloc[-1] - hist['Close'].iloc[-2]) / hist['Close'].iloc[-2]) * 100
+                market_data[name] = change
             else:
-                results[name] = 0.0
-        return results
+                market_data[name] = 0.0
+        return market_data
     except:
-        return {"BIST100": 0.0, "USDTRY": 0.0, "Altın": 0.0}
+        return {"BIST100": 0.0, "USDTRY": 0.0, "ONS": 0.0}
 
-@st.cache_data(ttl=600)
-def fetch_tefas_data(font_list):
+# 3. TEFAS'tan Resmi Dünkü Verileri Çeken Fonksiyon
+@st.cache_data(ttl=3600)
+def fetch_official_tefas(font_list):
     try:
         crawler = Crawler()
         today = get_istanbul_now()
-        start = (today - timedelta(days=7)).strftime("%Y-%m-%d")
-        end = today.strftime("%Y-%m-%d")
-        data = crawler.fetch(start, end)
+        data = crawler.fetch((today - timedelta(days=7)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d"))
         if data is not None and not data.empty:
             filtered = data[data['code'].isin(font_list)]
-            if not filtered.empty:
-                return filtered[filtered['date'] == filtered['date'].max()]
+            return filtered[filtered['date'] == filtered['date'].max()]
         return None
     except: return None
 
 def main():
-    st.title("🚀 Canlı Fon Tahmin ve Analiz")
+    st.title("🎯 Anlık Gün Sonu Fiyat Simülatörü")
+    st.markdown(f"**İstanbul Saati:** {get_istanbul_now().strftime('%H:%M:%S')} | *Piyasa verileri 60 saniyede bir güncellenir.*")
     
-    # 1. PİYASA VERİLERİ (SOL PANEL)
-    market = fetch_market_data()
-    with st.sidebar:
-        st.header("🌍 Canlı Piyasa")
-        st.metric("BIST 100", f"%{market['BIST100']:.2f}")
-        st.metric("USD/TRY", f"%{market['USDTRY']:.2f}")
-        st.metric("Ons Altın", f"%{market['Altın']:.2f}")
-        st.divider()
-        st.caption("Veriler yfinance üzerinden anlık çekilir.")
+    # --- PİYASA DURUMU ---
+    market = fetch_live_market()
+    m1, m2, m3 = st.columns(3)
+    m1.metric("BIST 100", f"%{market['BIST100']:.2f}")
+    m2.metric("USD/TRY", f"%{market['USDTRY']:.2f}")
+    m3.metric("Ons Altın", f"%{market['ONS']:.2f}")
 
-    # 2. FON DAĞILIMLARI (Buradaki oranları fonuna göre bir kez güncelle)
+    # --- FON PORTFÖY YAPILARI (Hassas Tahmin İçin Burayı Düzenle) ---
+    # Not: Bu oranlar fonun KAP bildirimindeki ağırlıklardır.
     portfoy_yapisi = {
-        "TLY": {"Hisse": 0.90, "Döviz": 0.05, "Altın": 0.05},
-        "DFI": {"Hisse": 0.20, "Döviz": 0.70, "Altın": 0.10},
-        "PHE": {"Hisse": 0.85, "Döviz": 0.10, "Altın": 0.05}
+        "TLY": {"Hisse": 0.88, "Dolar": 0.07, "Sabit": 0.05},
+        "DFI": {"Hisse": 0.15, "Dolar": 0.75, "Sabit": 0.10},
+        "PHE": {"Hisse": 0.82, "Dolar": 0.13, "Sabit": 0.05}
     }
 
     my_funds = ["TLY", "DFI", "PHE"]
-    df = fetch_tefas_data(my_funds)
+    df = fetch_official_tefas(my_funds)
 
     if df is not None and not df.empty:
-        # Sütun isimlerindeki hatayı önlemek için otomatik bulma
+        st.divider()
+        st.subheader("🚀 Akşam Beklenen (Simüle Edilen) Getiriler")
+        
+        # Sütun isimlerini güvenli alalım
         cols = df.columns.tolist()
         p_col = next((c for c in ['price', 'birim_fiyat'] if c in cols), None)
-        r_col = next((c for c in ['daily_return', 'getiri', 'return'] if c in cols), None)
-
-        st.subheader("🔮 Bugünün Tahmini Getirileri")
-        m_cols = st.columns(3)
         
+        f_cols = st.columns(3)
         for i, code in enumerate(my_funds):
-            fund_row = df[df['code'] == code]
-            if not fund_row.empty:
-                row = fund_row.iloc[0]
-                dagilim = portfoy_yapisi[code]
+            row = df[df['code'] == code].iloc[0]
+            dagilim = portfoy_yapisi[code]
+            
+            # --- HESAPLAMA MOTORU ---
+            # Fonun o günkü tahmini yüzdesi: (Hisse Payı * Borsa Değişimi) + (Dolar Payı * Kur Değişimi)
+            bugunku_tahmini_degisim = (
+                (dagilim["Hisse"] * market["BIST100"]) + 
+                (dagilim["Dolar"] * market["USDTRY"]) +
+                (dagilim.get("Sabit", 0) * 0.12) # Sabit getirili menkul kıymet varsayımı
+            )
+            
+            resmi_fiyat = float(row[p_col])
+            tahmini_fiyat = resmi_fiyat * (1 + bugunku_tahmini_degisim / 100)
+
+            with f_cols[i]:
+                st.markdown(f"### {code}")
+                st.caption("Resmi Kapanış (Dün)")
+                st.code(f"{resmi_fiyat:.4f} TL")
                 
-                # Fiyat ve Getiri değerlerini güvenli çek
-                old_price = float(row[p_col]) if p_col else 0.0
-                old_return = float(row[r_col]) if r_col else 0.0
-                
-                # Tahmin Hesaplama
-                tahmini_yuzde = (
-                    (dagilim["Hisse"] * market["BIST100"]) + 
-                    (dagilim["Döviz"] * market["USDTRY"]) + 
-                    (dagilim["Altın"] * market["Altın"])
+                st.caption("Beklenen Akşam Fiyatı")
+                st.metric(
+                    label="Tahmini Değişim", 
+                    value=f"{tahmini_fiyat:.4f} TL", 
+                    delta=f"%{bugunku_tahmini_degisim:.2f}"
                 )
-                tahmini_fiyat = old_price * (1 + tahmini_yuzde / 100)
-                
-                with m_cols[i]:
-                    st.info(f"Fon: **{code}**")
-                    st.metric("Resmi (Dün)", f"{old_price:.4f} TL", f"%{old_return:.2f}")
-                    st.metric("TAHMİNİ (Bugün)", f"{tahmini_fiyat:.4f} TL", f"%{tahmini_yuzde:.2f}", delta_color="normal")
         
         st.divider()
-        st.subheader("📊 TEFAS Kayıtları")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        with st.expander("📌 Bu değerler nasıl hesaplanıyor?"):
+            st.write("""
+            Bu uygulama, fonların en son açıklanan varlık dağılımlarını kullanır. 
+            Örneğin bir fonun %90'ı hisse senediyse, BIST100'deki anlık yükselişin %90'ını fona yansıtır. 
+            **Unutmayın:** Bu bir simülasyondur, fonun içindeki hisseler endeksten farklı hareket edebilir.
+            """)
     else:
-        st.warning("Veriler şu an TEFAS'tan çekilemiyor, lütfen bekleyin.")
-
-    if st.button("🔄 Verileri Şimdi Güncelle"):
-        st.cache_data.clear()
-        st.rerun()
+        st.error("TEFAS verilerine erişilemedi.")
 
 if __name__ == "__main__":
     main()
