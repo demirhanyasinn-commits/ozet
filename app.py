@@ -5,117 +5,76 @@ from tefas import Crawler
 from datetime import datetime, timedelta
 import pytz
 
-# 1. Sayfa Konfigürasyonu
-st.set_page_config(page_title="PRO Fon Simülatörü", layout="wide", initial_sidebar_state="collapsed")
+# Sayfa Ayarları
+st.set_page_config(page_title="PRO Fon Takip", layout="wide", initial_sidebar_state="collapsed")
 
-# 2. Premium Navigasyon ve Kart Tasarımı (image_2665ca.png referanslı)
+# Premium CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     html, body, [data-testid="stAppViewContainer"] { background-color: #0e0e0e; font-family: 'Inter', sans-serif; }
-    
-    .ticker-container {
-        background-color: #161616; padding: 12px 20px; border-radius: 12px;
-        display: flex; justify-content: space-between; align-items: center;
-        border: 1px solid #262626; margin-bottom: 25px; overflow-x: auto;
-    }
-    .ticker-item { text-align: center; min-width: 125px; padding: 0 15px; border-right: 1px solid #333; }
+    .ticker-container { background-color: #161616; padding: 12px 20px; border-radius: 12px; display: flex; justify-content: space-between; border: 1px solid #262626; margin-bottom: 25px; overflow-x: auto; }
+    .ticker-item { text-align: center; min-width: 125px; border-right: 1px solid #333; }
     .ticker-item:last-child { border-right: none; }
-    .ticker-label { color: #888; font-size: 0.7rem; font-weight: 600; }
-    .ticker-value { color: #fff; font-size: 0.95rem; font-weight: 700; display: block; }
-    .delta-up { color: #00ff88; font-size: 0.8rem; }
-    .delta-down { color: #ff4b4b; font-size: 0.8rem; }
-
-    .fund-card {
-        background-color: #161616; border-radius: 12px; padding: 22px; 
-        margin-bottom: 20px; border: 1px solid #262626; border-left: 5px solid #007bff;
-    }
-    .fund-title { color: #fff; font-size: 1.4rem; font-weight: 700; margin-bottom: 5px; }
-    .fund-subtitle { color: #666; font-size: 0.75rem; margin-bottom: 15px; height: 32px; }
-    .est-label { color: #999; font-size: 0.75rem; text-transform: uppercase; }
+    .fund-card { background-color: #161616; border-radius: 12px; padding: 22px; margin-bottom: 20px; border-left: 5px solid #007bff; border: 1px solid #262626; border-left: 5px solid #007bff; }
     .est-value { color: #00ff88; font-size: 2.2rem; font-weight: 800; }
     </style>
     """, unsafe_allow_html=True)
 
-def get_istanbul_now():
-    return datetime.now(pytz.timezone('Europe/Istanbul'))
-
 @st.cache_data(ttl=60)
-def fetch_market_data():
-    symbols = {"USDTRY": "USDTRY=X", "BIST100": "XU100.IS", "BTCUSD": "BTC-USD", "GOLD": "GC=F"}
-    results = {}
-    for name, sym in symbols.items():
+def fetch_data():
+    # Piyasadan canlı veriler (BIST, USD, Altın)
+    symbols = {"USDTRY": "USDTRY=X", "BIST100": "XU100.IS"}
+    market = {}
+    for k, s in symbols.items():
         try:
-            t = yf.Ticker(sym)
-            h = t.history(period="2d")
-            if len(h) >= 2:
-                last, prev = h['Close'].iloc[-1], h['Close'].iloc[-2]
-                results[name] = {"val": last, "pct": ((last - prev) / prev) * 100}
-        except: continue
-    return results
-
-@st.cache_data(ttl=600)
-def fetch_tefas_data(font_list):
-    try:
-        crawler = Crawler()
-        today = get_istanbul_now()
-        # Veri boşluğunu önlemek için 10 günlük veri çekiyoruz
-        data = crawler.fetch((today - timedelta(days=10)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d"))
-        if data is not None and not data.empty:
-            return data[data['code'].isin(font_list)].sort_values('date').drop_duplicates('code', keep='last')
-    except: return None
+            h = yf.Ticker(s).history(period="2d")
+            last, prev = h['Close'].iloc[-1], h['Close'].iloc[-2]
+            market[k] = {"val": last, "pct": ((last - prev) / prev) * 100}
+        except: market[k] = {"val": 0, "pct": 0}
+    return market
 
 def main():
-    market = fetch_market_data()
-    my_funds = ["TLY", "DFI", "PHE", "PBR"]
-    
-    # 3. Üst Ticker Navigasyonu
-    if market:
-        t_html = '<div class="ticker-container">'
-        for k, v in market.items():
-            color = "delta-up" if v['pct'] >= 0 else "delta-down"
-            val_f = f"{int(v['val']):,}" if "BTC" in k else f"{v['val']:.2f}"
-            t_html += f'<div class="ticker-item"><span class="ticker-label">{k}</span><span class="ticker-value">{val_f}</span><span class="ticker-delta {color}">%{v['pct']:.2f}</span></div>'
-        t_html += '</div>'
-        st.markdown(t_html, unsafe_allow_html=True)
+    m = fetch_data()
+    bist_pct = m["BIST100"]["pct"]
+    usd_pct = m["USDTRY"]["pct"]
 
-    # 4. Kalibre Edilmiş Hesaplama Motoru (image_26de41.jpg referanslı)
-    # Hisse ağırlıkları profesyonel tablodaki etki oranlarına göre güncellendi
-    portfoy_yapisi = {
-        "TLY": {"H": 0.84, "D": 0.05, "S": 0.11, "n": "Tera Portföy Birinci Serbest Fon"},
-        "DFI": {"H": 0.12, "D": 0.78, "S": 0.10, "n": "Atlas Portföy Serbest Fon"},
-        "PHE": {"H": 0.86, "D": 0.04, "S": 0.10, "n": "Pusula Portföy Hisse Fonu"},
-        "PBR": {"H": 0.38, "D": 0.42, "S": 0.20, "n": "Pusula Portföy Birinci Değişken"}
+    # GÖRSELDEKİ FORMÜLE GÖRE GÜNCEL PORTFÖY YAPISI
+    # Fonun içindeki ters hareket eden hisseleri (TPKGY vb.) dengelemek için 
+    # Hisse Etki Katsayısını (Beta) 0.65 - 0.70 bandına çekiyoruz.
+    portfoy = {
+        "TLY": {"Hisse": 0.68, "Dolar": 0.05, "Nakit": 0.27, "ad": "Tera Portföy Birinci Serbest"},
+        "DFI": {"Hisse": 0.15, "Dolar": 0.70, "Nakit": 0.15, "ad": "Atlas Portföy Serbest Fon"},
+        "PHE": {"Hisse": 0.72, "Dolar": 0.03, "Nakit": 0.25, "ad": "Pusula Portföy Hisse Fonu"},
+        "PBR": {"Hisse": 0.35, "Dolar": 0.40, "Nakit": 0.25, "ad": "Pusula Portföy Birinci Değişken"}
     }
 
-    df = fetch_tefas_data(my_funds)
-    if df is not None and market:
-        grid = st.columns(len(my_funds))
-        bist = market.get("BIST100", {"pct":0})["pct"]
-        usd = market.get("USDTRY", {"pct":0})["pct"]
+    st.markdown(f'<div class="ticker-container">BIST100: %{bist_pct:+.2f} | USDTRY: %{usd_pct:+.2f}</div>', unsafe_allow_html=True)
 
-        for i, code in enumerate(my_funds):
-            f_data = df[df['code'] == code]
-            if not f_data.empty:
-                row = f_data.iloc[0]
-                c = portfoy_yapisi[code]
-                
-                # %0.25'lik fazlalığı gideren hassas hesaplama
-                # Günlük repo/faiz etkisi (0.0012) eklendi ve toplam %2 oranında törpülendi
-                est = ((c["H"] * bist) + (c["D"] * usd) + (c["S"] * 0.12)) * 0.98
-                
-                with grid[i]:
-                    st.markdown(f"""
-                        <div class="fund-card">
-                            <div class="fund-title">{code}</div>
-                            <div class="fund-subtitle">{c['n']}</div>
-                            <div class="est-label">GÜN SONU TAHMİNİ</div>
-                            <div class="est-value">%{est:+.2f}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    # Fiyatı sayıya çevirerek KeyError ve Tip hatasını önlüyoruz
-                    fiyat = pd.to_numeric(row['price'])
-                    st.metric("Tahmini Fiyat", f"{fiyat * (1+est/100):.4f} TL", f"%{est:.2f}")
+    cols = st.columns(4)
+    for i, (code, c) in enumerate(portfoy.items()):
+        # HASSAS HESAPLAMA
+        # 1. Hisse getirisi (Endeksten arındırılmış, fon içi hisse dengesi gözetilmiş katsayı)
+        hisse_etki = c["Hisse"] * bist_pct * 0.78 
+        
+        # 2. Dolar etkisi
+        dolar_etki = c["Dolar"] * usd_pct
+        
+        # 3. Nakit/Repo sabit getirisi (Günlük %0.13 civarı)
+        nakit_etki = c["Nakit"] * 0.13
+        
+        # Toplam Tahmin
+        tahmin = hisse_etki + dolar_etki + nakit_etki
+
+        with cols[i]:
+            st.markdown(f"""
+                <div class="fund-card">
+                    <div style="color:white; font-weight:700;">{code}</div>
+                    <div style="color:#666; font-size:0.7rem; margin-bottom:10px;">{c['ad']}</div>
+                    <div style="color:#999; font-size:0.7rem;">GÜNLÜK BEKLENTİ</div>
+                    <div class="est-value">%{tahmin:+.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
