@@ -1,90 +1,86 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+import random
+import time
+import plotly.express as px
 
-st.set_page_config(page_title="Fon Portföy Analizi", layout="wide")
-
-# Saat farkı düzeltme (Türkiye)
-turkiye_saati = datetime.now() + timedelta(hours=3)
+st.set_page_config(page_title="Fon Takip", layout="wide")
 
 st.title("📊 Profesyonel Fon Takip Terminali")
-st.write(f"Son Veri Güncelleme: {turkiye_saati.strftime('%d.%m.%Y %H:%M:%S')}")
 
-# TEFAS VE KAP VERİLERİNE GÖRE GÜNCELLENMİŞ PORTFÖYLER
-# Not: TLY'de Tera ve iştirakleri, PHE'de ise BIST30 ağırlığı esastır.
-portfoy_verileri = {
-    "TLY": {
-        "ad": "Tera Portföy Birinci Serbest Fon",
-        "fiyat": 1.5032,
-        "getiri": 1.08,
-        "hisseler": [
-            {"Hisse": "TERA", "Pay": 24.10},
-            {"Hisse": "TRHOL", "Pay": 11.50},
-            {"Hisse": "PEKGY", "Pay": 9.20},
-            {"Hisse": "HMV", "Pay": 4.80},
-            {"Hisse": "Diğer/Nakit", "Pay": 50.40}
-        ]
-    },
-    "DFİ": {
-        "ad": "Atlas Portföy Serbest Fon",
-        "fiyat": 2.1245,
-        "getiri": -0.42,
-        "hisseler": [
-            {"Hisse": "THYAO", "Pay": 14.20},
-            {"Hisse": "TUPRS", "Pay": 11.80},
-            {"Hisse": "EREGL", "Pay": 7.50},
-            {"Hisse": "SAHOL", "Pay": 6.90},
-            {"Hisse": "Diğer/Nakit", "Pay": 59.60}
-        ]
-    },
-    "PHE": {
-        "ad": "Pusula Portföy Hisse Senedi Fonu",
-        "fiyat": 5.4218,
-        "getiri": 2.18,
-        "hisseler": [
-            {"Hisse": "BIMAS", "Pay": 9.80},
-            {"Hisse": "MGROS", "Pay": 8.50},
-            {"Hisse": "KCHOL", "Pay": 7.60},
-            {"Hisse": "FROTO", "Pay": 6.20},
-            {"Hisse": "Diğer/Nakit", "Pay": 67.90}
-        ]
+# 🔄 Auto refresh
+count = st.experimental_rerun if False else None
+
+# Fake veri (şimdilik)
+def get_data():
+    return {
+        "TLY": {
+            "price": round(random.uniform(1.4, 1.6), 4),
+            "history": {
+                "d1": 1.45,
+                "w1": 1.40,
+                "m1": 1.30
+            },
+            "distribution": {
+                "Nakit": 50,
+                "Hisse": 20,
+                "Tahvil": 15,
+                "Diğer": 15
+            }
+        },
+        "PHE": {
+            "price": round(random.uniform(5.0, 5.6), 4),
+            "history": {
+                "d1": 5.2,
+                "w1": 5.0,
+                "m1": 4.5
+            },
+            "distribution": {
+                "Hisse": 60,
+                "Nakit": 10,
+                "Tahvil": 20,
+                "Diğer": 10
+            }
+        }
     }
-}
 
-# --- ÖZET KARTLAR ---
-cols = st.columns(3)
-for i, kod in enumerate(portfoy_verileri):
-    data = portfoy_verileri[kod]
+def calc_change(current, past):
+    return ((current - past) / past) * 100
+
+data = get_data()
+
+# 📦 Fon Kartları
+cols = st.columns(len(data))
+
+for i, (fon, val) in enumerate(data.items()):
     with cols[i]:
-        st.metric(label=f"{kod} ANLIK", value=f"{data['fiyat']:.4f} TL", delta=f"%{data['getiri']}")
-        st.caption(data['ad'])
+        change = calc_change(val["price"], val["history"]["d1"])
 
-st.divider()
+        color = "green" if change > 0 else "red"
 
-# --- DETAYLI TABLOLAR ---
-st.subheader("🔍 Portföy Detay Analizi")
-tabs = st.tabs([f"{k} Dağılım" for k in portfoy_verileri.keys()])
+        st.markdown(f"### {fon}")
+        st.markdown(f"<h1 style='color:{color}'>{change:.2f}%</h1>", unsafe_allow_html=True)
+        st.markdown(f"<p>{val['price']} TL</p>", unsafe_allow_html=True)
 
-for i, kod in enumerate(portfoy_verileri):
-    with tabs[i]:
-        df = pd.DataFrame(portfoy_verileri[kod]["hisseler"])
-        
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            st.write(f"**{kod} - En Yüksek Ağırlıklı Varlıklar**")
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        
-        with c2:
-            st.write("**Görsel Dağılım**")
-            st.bar_chart(df.set_index("Hisse"), y="Pay")
+        # 👇 DETAY
+        with st.expander("Detayları Gör"):
+            d1 = calc_change(val["price"], val["history"]["d1"])
+            w1 = calc_change(val["price"], val["history"]["w1"])
+            m1 = calc_change(val["price"], val["history"]["m1"])
 
-# --- NEDEN UYUŞMUYOR AÇIKLAMASI ---
-with st.expander("ℹ️ Veriler Neden Farklı Görünebilir?"):
-    st.write("""
-    1. **Raporlama Gecikmesi:** Fonlar portföylerini KAP'a (Kamuyu Aydınlatma Platformu) ayda bir kez bildirir. Bu koddaki veriler son resmi bildirime dayanır.
-    2. **Anlık İşlemler:** Fon yöneticisi gün içinde hisse satıp nakde geçmiş olabilir.
-    3. **Nakit Oranı:** Serbest fonlarda (TLY, DFİ) nakit ve repo oranı gün bazında çok hızlı değişebilir.
-    """)
+            st.write(f"📅 1 Gün: %{d1:.2f}")
+            st.write(f"📅 1 Hafta: %{w1:.2f}")
+            st.write(f"📅 1 Ay: %{m1:.2f}")
 
-if st.button('Sayfayı ve Saati Güncelle'):
-    st.rerun()
+            # 📊 Grafik
+            df = pd.DataFrame({
+                "Kategori": list(val["distribution"].keys()),
+                "Oran": list(val["distribution"].values())
+            })
+
+            fig = px.pie(df, names="Kategori", values="Oran", title="Varlık Dağılımı")
+            st.plotly_chart(fig, use_container_width=True)
+
+# 🔄 Auto refresh
+time.sleep(10)
+st.rerun()
