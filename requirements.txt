@@ -1,4 +1,4 @@
 streamlit
 pandas
-tefas-fetcher
+tefas-crawler
 pytz
