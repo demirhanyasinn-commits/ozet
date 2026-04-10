@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 
 # 1. Sayfa Konfigürasyonu
-st.set_page_config(page_title="Fon Gün Sonu Simülatörü", layout="wide")
+st.set_page_config(page_title="EMRE ÇALIŞKAN", layout="wide")
 
 def get_istanbul_now():
     return datetime.now(pytz.timezone('Europe/Istanbul'))
@@ -44,7 +44,7 @@ def fetch_official_tefas(font_list):
     except: return None
 
 def main():
-    st.title("🎯 Anlık Gün Sonu Fiyat Simülatörü")
+    st.title("🎯 EMRE ÇALIŞKAN Anlık Gün Sonu Fiyat Simülatörü")
     st.markdown(f"**İstanbul Saati:** {get_istanbul_now().strftime('%H:%M:%S')} | *Piyasa verileri 60 saniyede bir güncellenir.*")
     
     # --- PİYASA DURUMU ---
