@@ -1,6 +1,22 @@
 import streamlit as st
 @st.cache_data(ttl=300)
 def fetch_tefas(fon_kodu):
+
+
+
+import streamlit as st
+import pandas as pd
+
+uploaded_file = st.file_uploader("Choose a file") # Line 45 aligned with imports
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+
+
+
+
+
+
+    
     url = "https://www.tefas.gov.tr/api/DB/BindHistoryInfo"
 
     payload = {
