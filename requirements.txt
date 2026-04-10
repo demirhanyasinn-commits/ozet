@@ -2,3 +2,4 @@ streamlit
 pandas
 tefas-crawler
 pytz
+yfinance
