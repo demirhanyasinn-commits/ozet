@@ -2,6 +2,47 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
+# 1. AYARLAR
+st.set_page_config(page_title="Fon Takip Pro", layout="wide", initial_sidebar_state="collapsed")
+
+# 2. STİLLER (CSS)
+st.markdown("""
+    <style>
+    .stApp { background-color: #0b0e14; }
+    .market-chip {
+        padding: 8px 15px;
+        border-radius: 50px;
+        font-weight: bold;
+        display: inline-block;
+        margin-right: 10px;
+        font-size: 0.9em;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 3. YENİ ANA BAŞLIK (BURAYA EKLENİYOR)
+st.markdown("""
+    <div style="text-align: left; margin-top: -20px; margin-bottom: 10px;">
+        <h1 style="
+            font-family: 'Orbitron', sans-serif; 
+            font-weight: 900; 
+            font-size: 60px; 
+            color: #ffffff; 
+            text-shadow: 0 0 15px rgba(255,255,255,0.2);
+            letter-spacing: 10px;
+            margin-bottom: 0;
+        ">
+            YA 34 YA 39
+        </h1>
+    </div>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
+    """, unsafe_allow_html=True)
+
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+
 # Sayfa Yapılandırması
 st.set_page_config(page_title="Fon Takip Pro", layout="wide", initial_sidebar_state="collapsed")
 
