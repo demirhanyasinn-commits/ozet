@@ -97,14 +97,26 @@ header_html = f"""
 """
 st.markdown(header_html, unsafe_allow_html=True)
 
-# FON LİSTESİ
-funds = {
-    "TLY": {"name": "Tera Portföy Birinci Serbest", "beta": 0.92},
-    "DFI": {"name": "Atlas Portföy Serbest Fon", "beta": 0.78},
-    "PHE": {"name": "Pusula Portföy Hisse Fon", "beta": 1.05},
-    "PBR": {"name": "Pusula Portföy Birinci Değişken", "beta": 0.65},
-    "KHA": {"name": "İstanbul Portföy Birinci Değişken", "beta": 0.82}
-}
+# Fon Listesi ve İnce Ayarlı Katsayılar
+def get_fund_estimates(bist_pc, usd_pc):
+    # Katsayı Mantığı:
+    # beta: Borsaya duyarlılık (1.0 tam takip, 0.5 yarı takip)
+    # fixed: Borsadan bağımsız günlük beklenen faiz/sabit getiri (yaklaşık %0.15)
+    
+    funds = {
+        "TLY": {"name": "Tera Portföy Birinci Serbest", "beta": 0.85, "fixed": 0.05},
+        "DFI": {"name": "Atlas Portföy Serbest Fon", "beta": 0.70, "fixed": 0.08},
+        "PHE": {"name": "Pusula Portföy Hisse Fon", "beta": 1.10, "fixed": 0.01}, # Hisse yoğun, sabit getirisi az
+        "PBR": {"name": "Pusula Portföy Birinci Değişken", "beta": 0.40, "fixed": 0.15}, # Sabit getirisi yüksek
+        "KHA": {"name": "İstanbul Portföy Birinci Değişken", "beta": 0.55, "fixed": 0.12}
+    }
+    
+    results = {}
+    for code, info in funds.items():
+        # Yeni Formül: (Endeks * Duyarlılık) + Sabit Getiri
+        prediction = (bist_pc * info['beta']) + info['fixed']
+        results[code] = {"name": info['name'], "val": prediction}
+    return results
 
 # KARTLAR
 cols = st.columns(len(funds))
