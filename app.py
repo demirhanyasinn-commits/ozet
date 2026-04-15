@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import time
+from datetime import datetime, timedelta, timezone
 
 # 1. SAYFA AYARLARI
 st.set_page_config(page_title="YA 34 YA 39 | Fon Takip", layout="wide", initial_sidebar_state="collapsed")
@@ -19,7 +19,6 @@ st.markdown("""
         font-size: 0.95em;
         border: 1px solid rgba(255,255,255,0.1);
     }
-    /* Buton Stilini Özelleştirme */
     .stButton>button {
         background-color: #10b981;
         color: white;
@@ -27,10 +26,11 @@ st.markdown("""
         border: none;
         padding: 10px 20px;
         font-weight: bold;
+        width: 100%;
     }
     .stButton>button:hover {
         background-color: #059669;
-        color: white;
+        border: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -45,40 +45,33 @@ st.markdown("""
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap" rel="stylesheet">
     """, unsafe_allow_html=True)
 
-# 4. PİYASA VERİSİ ÇEKME (Geliştirilmiş)
-# ttl=1 yaparak verinin her dakika tazelenmesini sağlıyoruz
+# 4. PİYASA VERİSİ ÇEKME
 @st.cache_data(ttl=1) 
 def get_market_data():
     try:
-        # '1d' yerine '5d' çekip son iki geçerli fiyatı kıyaslamak daha doğru sonuç verir
         bist = yf.download("XU100.IS", period="5d", interval="1m", progress=False)
         usd = yf.download("USDTRY=X", period="5d", interval="1m", progress=False)
         
-        if not bist.empty and len(bist) > 1:
-            # Gerçek anlık değişim: (Son Fiyat / Önceki Kapanış)
-            bist_pc = float(((bist['Close'].iloc[-1] / bist['Close'].iloc[-2]) - 1) * 100)
-        else:
-            bist_pc = 0.0
-            
-        if not usd.empty:
-            usd_pc = float(((usd['Close'].iloc[-1] / usd['Close'].iloc[-2]) - 1) * 100)
-        else:
-            usd_pc = 0.0
-            
+        bist_pc = float(((bist['Close'].iloc[-1] / bist['Close'].iloc[-2]) - 1) * 100) if not bist.empty else 0.0
+        usd_pc = float(((usd['Close'].iloc[-1] / usd['Close'].iloc[-2]) - 1) * 100) if not usd.empty else 0.0
         return bist_pc, usd_pc
-    except Exception as e:
+    except:
         return 0.0, 0.0
 
-# GÜNCELLEME BUTONU
-col1, col2 = st.columns([0.85, 0.15])
+# GÜNCELLEME BUTONU VE SAAT HESABI
+# İstanbul saati için UTC+3 ayarı
+tr_tz = timezone(timedelta(hours=3))
+simdi_tr = datetime.now(tr_tz).strftime('%H:%M:%S')
+
+col1, col2 = st.columns([0.82, 0.18])
 with col2:
     if st.button("🔄 Verileri Güncelle"):
-        st.cache_data.clear() # Önbelleği temizle
-        st.rerun() # Sayfayı yeniden yükle
+        st.cache_data.clear()
+        st.rerun()
 
 bist_pc, usd_pc = get_market_data()
 
-# 5. PİYASA ÖZETİ (CHIPS)
+# 5. PİYASA ÖZETİ
 bist_color = "#10b981" if bist_pc >= 0 else "#ef4444"
 usd_color = "#10b981" if usd_pc >= 0 else "#ef4444"
 
@@ -94,7 +87,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 6. FON TANIMLARI (Daha hassas katsayılar)
+# 6. FONLAR
 funds = {
     "TLY": {"name": "Tera Portföy Birinci Serbest", "beta": 0.88, "fixed": 0.04},
     "DFI": {"name": "Atlas Portföy Serbest Fon", "beta": 0.75, "fixed": 0.06},
@@ -108,11 +101,7 @@ cols = st.columns(len(funds))
 for i, (code, info) in enumerate(funds.items()):
     prediction = (bist_pc * info['beta']) + info['fixed']
     with cols[i]:
-        if prediction >= 0:
-            bg, border, glow = "#064e3b", "#10b981", "rgba(16, 185, 129, 0.25)"
-        else:
-            bg, border, glow = "#450a0a", "#ef4444", "rgba(239, 68, 68, 0.25)"
-        
+        bg, border, glow = ("#064e3b", "#10b981", "rgba(16, 185, 129, 0.25)") if prediction >= 0 else ("#450a0a", "#ef4444", "rgba(239, 68, 68, 0.25)")
         st.markdown(f"""
         <div style="background-color: {bg}; padding: 25px 20px; border-radius: 20px; border-left: 8px solid {border}; min-height: 220px; box-shadow: 0 10px 25px {glow};">
             <span style="color: #ffffff; font-weight: 800; font-size: 1.6em;">{code}</span>
@@ -125,4 +114,9 @@ for i, (code, info) in enumerate(funds.items()):
         """, unsafe_allow_html=True)
 
 st.write("<br>", unsafe_allow_html=True)
-st.caption(f"🕒 Son Güncelleme: {time.strftime('%H:%M:%S')} | Formül: (BIST100 * Beta) + Sabit Getiri")
+st.markdown(f"""
+    <div style="background-color: rgba(255,255,255,0.05); padding: 10px 20px; border-radius: 10px; display: inline-block;">
+        <span style="color: #10b981;">●</span> 
+        <span style="color: white; font-size: 0.9em; font-weight: bold;"> Son Güncelleme (İstanbul): {simdi_tr}</span>
+    </div>
+""", unsafe_allow_html=True)
