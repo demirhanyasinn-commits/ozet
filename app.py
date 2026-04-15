@@ -117,6 +117,6 @@ st.write("<br>", unsafe_allow_html=True)
 st.markdown(f"""
     <div style="background-color: rgba(255,255,255,0.05); padding: 10px 20px; border-radius: 10px; display: inline-block;">
         <span style="color: #10b981;">●</span> 
-        <span style="color: white; font-size: 0.9em; font-weight: bold;"> Son Güncelleme (İstanbul): {simdi_tr}</span>
+        <span style="color: white; font-size: 0.9em; font-weight: bold;"> Son Güncelleme : {simdi_tr}</span>
     </div>
 """, unsafe_allow_html=True)
