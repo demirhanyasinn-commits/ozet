@@ -109,5 +109,5 @@ for i, (code, info) in enumerate(funds.items()):
             <h1 style="color:white; margin:0; font-size:2.8em;">%{prediction:+.2f}</h1>
         </div>
         """, unsafe_allow_html=True)
-
+<br>
 st.info(f"🕒 Son Güncelleme: {simdi_tr} ")
