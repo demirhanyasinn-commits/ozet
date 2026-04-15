@@ -120,12 +120,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # 7. FON TANIMLARI
+# FVT verilerine daha yakın tahminler için güncellenmiş katsayılar
 funds = {
-    "TLY": {"name": "Tera Portföy Birinci Serbest", "beta": 0.88, "fixed": 0.05},
-    "DFI": {"name": "Atlas Portföy Serbest Fon", "beta": 0.75, "fixed": 0.07},
-    "PHE": {"name": "Pusula Portföy Hisse Fon", "beta": 1.12, "fixed": 0.01},
-    "PBR": {"name": "Pusula Portföy Birinci Değişken", "beta": 0.42, "fixed": 0.17},
-    "KHA": {"name": "İstanbul Portföy Birinci Değişken", "beta": 0.55, "fixed": 0.15}
+    "TLY": {"name": "Tera Portföy Birinci Serbest", "beta": 0.90, "fixed": 0.04}, # Beta biraz artırıldı
+    "DFI": {"name": "Atlas Portföy Serbest Fon", "beta": 0.78, "fixed": 0.06},
+    "PHE": {"name": "Pusula Portföy Hisse Fon", "beta": 1.15, "fixed": 0.01},
+    "PBR": {"name": "Pusula Portföy Birinci Değişken", "beta": 0.40, "fixed": 0.18}, # Sabit getiri payı artırıldı
+    "KHA": {"name": "İstanbul Portföy Birinci Değişken", "beta": 0.52, "fixed": 0.16}
 }
 
 # 8. FON KARTLARI
