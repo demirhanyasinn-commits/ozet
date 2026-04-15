@@ -110,4 +110,4 @@ for i, (code, info) in enumerate(funds.items()):
         </div>
         """, unsafe_allow_html=True)
 
-st.info(f"🕒 Son Güncelleme: {simdi_tr} | Not: Ücretsiz veriler 15dk gecikmelidir, tahminler bu fark dikkate alınarak hesaplanır.")
+st.info(f"🕒 Son Güncelleme: {simdi_tr} ")
