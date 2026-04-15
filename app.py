@@ -3,9 +3,60 @@ import yfinance as yf
 import pandas as pd
 
 # Sayfa Yapılandırması
-st.set_page_config(page_title="Fon Takip Dashboard", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Fon Takip Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# Fon Listesi ve Katsayılar (Buradaki beta değerlerini fonun gerçek riskine göre artırıp azaltabilirsin)
+# Arka plan ve genel stil iyileştirmeleri
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #0b0e14;
+    }
+    .market-chip {
+        padding: 8px 15px;
+        border-radius: 50px;
+        font-weight: bold;
+        display: inline-block;
+        margin-right: 10px;
+        font-size: 0.9em;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Veri çekme fonksiyonu
+@st.cache_data(ttl=60)
+def get_market_data():
+    try:
+        # BIST ve USD verilerini çek
+        bist = yf.download("XU100.IS", period="2d", interval="1m", progress=False)
+        usd = yf.download("USDTRY=X", period="2d", interval="1m", progress=False)
+        
+        bist_pc = float(((bist['Close'].iloc[-1] / bist['Close'].iloc[0]) - 1) * 100) if not bist.empty else 0.0
+        usd_pc = float(((usd['Close'].iloc[-1] / usd['Close'].iloc[0]) - 1) * 100) if not usd.empty else 0.0
+        return bist_pc, usd_pc
+    except:
+        return 0.14, -0.06 # Hata durumunda örnek veri
+
+bist_pc, usd_pc = get_market_data()
+
+# ÜST PANEL - Şık Market Göstergeleri
+bist_color = "#10b981" if bist_pc >= 0 else "#ef4444"
+usd_color = "#10b981" if usd_pc >= 0 else "#ef4444"
+
+header_html = f"""
+<div style="display: flex; align-items: center; margin-bottom: 30px; gap: 15px;">
+    <h2 style="color: white; margin: 0; margin-right: 20px; font-family: sans-serif;">Piyasa Özeti</h2>
+    <div class="market-chip" style="background-color: {bist_color}22; color: {bist_color};">
+        BIST100: {bist_pc:+.2f}%
+    </div>
+    <div class="market-chip" style="background-color: {usd_color}22; color: {usd_color};">
+        USDTRY: {usd_pc:+.2f}%
+    </div>
+</div>
+"""
+st.markdown(header_html, unsafe_allow_html=True)
+
+# FON LİSTESİ
 funds = {
     "TLY": {"name": "Tera Portföy Birinci Serbest", "beta": 0.92},
     "DFI": {"name": "Atlas Portföy Serbest Fon", "beta": 0.78},
@@ -14,73 +65,44 @@ funds = {
     "KHA": {"name": "İstanbul Portföy Birinci Değişken", "beta": 0.82}
 }
 
-# Veri çekme fonksiyonu - Hata payını azaltmak için iyileştirildi
-@st.cache_data(ttl=60) # Veriyi 1 dakikada bir tazeler
-def get_live_market_data():
-    try:
-        # BIST100 (XU100.IS) ve USD/TRY anlık fiyatlarını çek
-        # '1d' yerine '5d' çekip son iki geçerli günü kıyaslamak daha garantidir
-        bist_data = yf.download("XU100.IS", period="2d", interval="1m", progress=False)
-        usd_data = yf.download("USDTRY=X", period="2d", interval="1m", progress=False)
-        
-        if not bist_data.empty and len(bist_data) >= 2:
-            current_price = bist_data['Close'].iloc[-1]
-            prev_close = bist_data['Close'].iloc[0] # Bir önceki periyot kapanışı
-            bist_pc = float(((current_price / prev_close) - 1) * 100)
-        else:
-            # Eğer anlık veri gelmezse günlük özete bak
-            ticker = yf.Ticker("XU100.IS").history(period="2d")
-            bist_pc = ((ticker['Close'].iloc[-1] / ticker['Close'].iloc[-2]) - 1) * 100
-
-        if not usd_data.empty:
-            usd_pc = float(((usd_data['Close'].iloc[-1] / usd_data['Close'].iloc[0]) - 1) * 100)
-        else:
-            usd_pc = 0.0
-            
-        return bist_pc, usd_pc
-    except:
-        return 0.14, -0.06 # Veri çekilemezse örnek bir değer göster (Hata anlaşılması için)
-
-# Hesaplamaları Yap
-bist_pc, usd_pc = get_live_market_data()
-
-# Üst Bilgi Paneli
-st.markdown(f"## BIST100: %{bist_pc:+.2f} | USDTRY: %{usd_pc:+.2f}")
-st.write("---")
-
-# Kartları Oluşturma
+# KARTLAR
 cols = st.columns(len(funds))
 
 for i, (code, info) in enumerate(funds.items()):
-    # Tahmini getiri hesapla
     prediction = bist_pc * info['beta']
     
     with cols[i]:
         if prediction >= 0:
-            bg_color, border_color, text_color = "#064e3b", "#10b981", "#a7f3d0"
+            bg_color, border_color, glow = "#064e3b", "#10b981", "rgba(16, 185, 129, 0.2)"
         else:
-            bg_color, border_color, text_color = "#450a0a", "#ef4444", "#fecaca"
+            bg_color, border_color, glow = "#450a0a", "#ef4444", "rgba(239, 68, 68, 0.2)"
         
         st.markdown(f"""
         <div style="
             background-color: {bg_color}; 
-            padding: 20px; 
-            border-radius: 15px; 
-            border-left: 7px solid {border_color}; 
-            min-height: 200px;
+            padding: 25px 20px; 
+            border-radius: 20px; 
+            border: 1px solid {border_color}44;
+            border-left: 8px solid {border_color}; 
+            min-height: 220px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            box-shadow: 0 10px 20px {glow};
             ">
             <div>
-                <p style="color: #ffffff; font-weight: 800; margin-bottom: 0; font-size: 1.4em;">{code}</p>
-                <p style="color: {text_color}; font-size: 0.85em; margin-top: 5px; height: 45px; overflow: hidden;">{info['name']}</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <span style="color: #ffffff; font-weight: 800; font-size: 1.5em;">{code}</span>
+                    <span style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 5px; color: white; font-size: 0.6em;">FON</span>
+                </div>
+                <p style="color: #ffffff; font-size: 0.85em; margin-top: 10px; opacity: 0.8; height: 45px; line-height: 1.3;">{info['name']}</p>
             </div>
-            <div>
-                <p style="color: #ffffff; font-size: 0.75em; margin-bottom: 2px; font-weight: bold; opacity: 0.8;">GÜNLÜK BEKLENTİ</p>
-                <h2 style="color: #ffffff; margin: 0; font-size: 2em; font-weight: 900;">%{prediction:+.2f}</h2>
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); pt-15px; margin-top: 10px;">
+                <p style="color: #ffffff; font-size: 0.7em; margin-top: 10px; font-weight: bold; opacity: 0.7;">GÜNLÜK BEKLENTİ</p>
+                <h2 style="color: #ffffff; margin: 0; font-size: 2.2em; font-weight: 900; letter-spacing: -1px;">%{prediction:+.2f}</h2>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-st.caption("Veriler yfinance üzerinden çekilmektedir. Borsa kapalıyken veya veri gecikmeli geldiğinde değerler %0.00 görünebilir.")
+st.write("<br>", unsafe_allow_html=True)
+st.caption("🟢 Veriler 1 dakikalık periyotlarla güncellenir. Tahminler geçmiş beta verilerine dayanmaktadır.")
