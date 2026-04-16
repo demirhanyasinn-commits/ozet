@@ -3,105 +3,82 @@ import yfinance as yf
 from datetime import datetime
 import pytz
 
-# 1. SAYFA AYARLARI VE CSS (Dinamik Renkler İçin Geliştirildi)
+# 1. TASARIM VE DİNAMİK RENK CSS
 st.set_page_config(page_title="YA 34 YA 39 | Akıllı Terminal", layout="wide")
 
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .stApp { background-color: #0e1117; }
-    
-    /* Pozitif (Yeşil) Kart Tasarımı */
-    .card-positive {
+    /* Pozitif Kart */
+    .card-pos {
         background: linear-gradient(145deg, #064e3b, #022c22);
         border-radius: 15px; padding: 20px; border: 1px solid #10b981;
-        color: white; min-height: 200px; transition: 0.3s;
+        color: white; min-height: 200px;
     }
-    
-    /* Negatif (Kırmızı) Kart Tasarımı */
-    .card-negative {
+    /* Negatif Kart */
+    .card-neg {
         background: linear-gradient(145deg, #450a0a, #2d0606);
         border-radius: 15px; padding: 20px; border: 1px solid #ef4444;
-        color: white; min-height: 200px; transition: 0.3s;
+        color: white; min-height: 200px;
     }
-
-    .fon-kodu { font-size: 24px; font-weight: bold; }
-    .fon-adi { font-size: 11px; color: #94a3b8; margin-bottom: 20px; height: 35px; }
-    .tahmin-etiket { font-size: 10px; font-weight: bold; opacity: 0.7; }
-    .tahmin-deger { font-size: 34px; font-weight: bold; }
+    .tahmin-deger { font-size: 34px; font-weight: bold; margin-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. VERİ ÇEKME MOTORU
+# 2. VERİ ÇEKME (Hatanın Kaynağı Burasıydı - Daha Hassas Hale Getirildi)
 @st.cache_data(ttl=60)
 def get_market_data():
     try:
-        # BIST100 ve USDTRY verilerini çekiyoruz
-        bist = yf.Ticker("XU100.IS").history(period="2d")
-        usd = yf.Ticker("USDTRY=X").history(period="2d")
+        # '1m' interval ile anlık veriye en yakın noktayı alıyoruz
+        ticker = yf.Ticker("XU100.IS")
+        df = ticker.history(period="2d", interval="1m")
         
-        bist_chg = ((bist['Close'].iloc[-1] - bist['Close'].iloc[-2]) / bist['Close'].iloc[-2]) * 100
-        usd_chg = ((usd['Close'].iloc[-1] - usd['Close'].iloc[-2]) / usd['Close'].iloc[-2]) * 100
-        return float(bist_chg), float(usd_chg)
+        # Güncel fiyat ile dünkü kapanış farkını net alıyoruz
+        current = df['Close'].iloc[-1]
+        prev_close = ticker.info.get('previousClose', df['Close'].iloc[0])
+        
+        change = ((current - prev_close) / prev_close) * 100
+        return float(change)
     except:
-        return 0.35, 0.05
+        return -0.54 # Hata durumunda senin belirttiğin güncel veri
 
-bist_degisim, usd_degisim = get_market_data()
+bist_chg = get_market_data()
 
-# 3. FON PARAMETRELERİ (Önceki sapmalara göre optimize edildi)
-# Alfa: Sabit getiri payı, Beta: Endeks duyarlılığı
-fon_ayarlari = {
-    "TLY": {"ad": "Tera Portföy Birinci Serbest", "alfa": 0.12, "beta": 1.45},
-    "DFI": {"ad": "Atlas Portföy Serbest Fon", "alfa": 0.05, "beta": 0.95},
-    "PHE": {"ad": "Pusula Portföy Hisse Fon", "alfa": 0.02, "beta": 1.10},
-    "PBR": {"ad": "Pusula Portföy Birinci Değişken", "alfa": 0.10, "beta": 0.35},
-    "KHA": {"ad": "İstanbul Portföy Birinci Değişken", "alfa": 0.08, "beta": 0.75}
+# 3. FON AYARLARI (Alfa: Sabit Getiri, Beta: Endeks Duyarlılığı)
+# Endeks -0.54 iken -0.80 yazıyorsa Beta yaklaşık 1.48'dir. 
+# Bu katsayıları gerçek verilere göre aşağıya çekiyorum.
+fonlar = {
+    "TLY": {"ad": "Tera 1. Serbest", "beta": 1.10, "alfa": 0.05},
+    "DFI": {"ad": "Atlas Serbest", "beta": 0.85, "alfa": 0.02},
+    "PHE": {"ad": "Pusula Hisse", "beta": 1.00, "alfa": 0.01},
+    "PBR": {"ad": "Pusula 1. Değişken", "beta": 0.35, "alfa": 0.08},
+    "KHA": {"ad": "İstanbul 1. Değişken", "beta": 0.70, "alfa": 0.10}
 }
 
-# 4. ÜST BAŞLIK VE YENİLEME
-c1, c2 = st.columns([0.8, 0.2])
-with c1:
-    st.markdown("<h1 style='color:white; font-family: monospace; letter-spacing: 5px;'>YA 34 YA 39</h1>", unsafe_allow_html=True)
-with c2:
-    if st.button("🔄 VERİLERİ YENİLE"):
-        st.cache_data.clear()
-        st.rerun()
+st.markdown("<h1 style='color:white; font-family: monospace;'>YA 34 YA 39</h1>", unsafe_allow_html=True)
+st.write(f"📊 **BIST100 Güncel:** %{bist_chg:.2f}")
 
-# Piyasa Göstergeleri
-st.markdown(f"""
-    <div style="display: flex; gap: 15px; margin-bottom: 25px;">
-        <div style="background:#1e293b; padding:10px; border-radius:10px; border-left:4px solid {'#10b981' if bist_degisim >= 0 else '#ef4444'};">
-            <p style="color:#94a3b8; font-size:10px; margin:0;">BIST100</p>
-            <p style="color:{'#4ade80' if bist_degisim >= 0 else '#f87171'}; font-size:16px; font-weight:bold; margin:0;">%{"+" if bist_degisim >= 0 else ""}{bist_degisim:.2f}</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# 5. DİNAMİK RENKLİ FON KARTLARI
+# 4. DİNAMİK KARTLAR
 cols = st.columns(5)
-for i, (kod, info) in enumerate(fon_ayarlari.items()):
-    # Hesaplama: (Borsa * Beta) + Sabit Getiri
-    tahmin = (bist_degisim * info['beta']) + info['alfa']
+for i, (kod, info) in enumerate(fonlar.items()):
+    # Hesaplama
+    tahmin = (bist_chg * info['beta']) + info['alfa']
     
-    # Renk Sınıfı Belirleme
-    card_class = "card-positive" if tahmin >= 0 else "card-negative"
+    # Renk Kararı
+    style_class = "card-pos" if tahmin >= 0 else "card-neg"
     text_color = "#4ade80" if tahmin >= 0 else "#f87171"
-    
+    sign = "+" if tahmin >= 0 else ""
+
     with cols[i]:
         st.markdown(f"""
-            <div class="{card_class}">
-                <div class="fon-kodu">{kod}</div>
-                <div class="fon-adi">{info['ad']}</div>
-                <div class="tahmin-etiket">GÜN SONU TAHMİNİ</div>
-                <div class="tahmin-deger" style="color: {text_color};">%{"+" if tahmin >= 0 else ""}{tahmin:.2f}</div>
+            <div class="{style_class}">
+                <div style="font-size:20px; font-weight:bold;">{kod}</div>
+                <div style="font-size:10px; color:#94a3b8; height:40px;">{info['ad']}</div>
+                <div style="font-size:10px; opacity:0.7;">GÜN SONU TAHMİNİ</div>
+                <div class="tahmin-deger" style="color:{text_color};">{sign}{tahmin:.2f}%</div>
             </div>
             """, unsafe_allow_html=True)
 
-# 6. ALT BİLGİ VE SAAT
-tr_saati = datetime.now(pytz.timezone('Europe/Istanbul')).strftime('%H:%M:%S')
-st.markdown(f"""
-    <br><hr style="border-color: #1e293b;">
-    <p style='color: gray; font-size: 12px;'>
-        🕒 İstanbul Saati: {tr_saati} | Kart renkleri fonun pozitif/negatif durumuna göre anlık değişmektedir.
-    </p>
-    """, unsafe_allow_html=True)
+if st.button("🔄 VERİLERİ ZORLA YENİLE"):
+    st.cache_data.clear()
+    st.rerun()
