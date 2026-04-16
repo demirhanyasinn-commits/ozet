@@ -27,12 +27,12 @@ st.markdown("""
     
     /* Buton Stilini Görseldeki Maviye Benzetme */
     div.stButton > button {
-        background-color: #00f2ff;
+        background-color: #f2f2f2;
         color: black;
         font-weight: bold;
         border-radius: 5px;
         border: none;
-        float: right;
+        float: left;
     }
     </style>
     """, unsafe_allow_html=True)
