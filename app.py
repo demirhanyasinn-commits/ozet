@@ -6,7 +6,7 @@ import pandas as pd
 
 # Sayfa Ayarları
 
-st.header("Y A 3 4 Y A 3 9", anchor=False)
+st.markdown("<h1 style='...'>YA 34 YA 39</h1>", unsafe_allow_html=True)
 
 # 1. VERİ MOTORU (Borsa, Dolar, Altın)
 @st.cache_data(ttl=300)
