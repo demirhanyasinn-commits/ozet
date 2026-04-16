@@ -34,6 +34,21 @@ st.markdown("""
         border: none;
         float: left;
     }
+
+    # Bu kısmı CSS style içine ekle:
+"""
+.tahmin-deger { 
+    font-size: 32px; 
+    font-weight: bold; 
+    margin-top: 10px;
+    text-shadow: 0px 0px 10px rgba(16, 185, 129, 0.5); /* Sayılara hafif bir parlama verir */
+}
+.tahmin-kart:hover {
+    border: 1px solid #00f2ff; /* Kartın üzerine gelince mavi bir çerçeve belirir */
+    transform: scale(1.02);
+    transition: all 0.3s ease;
+}
+"""
     </style>
     """, unsafe_allow_html=True)
 
