@@ -5,8 +5,7 @@ import pytz
 import pandas as pd
 
 # Sayfa Ayarları
-
-st.markdown("<h1 style='...'>YA 34 YA 39</h1>", unsafe_allow_html=True)
+st.set_page_config(page_title="YA 34 YA 39 | Akıllı Terminal", layout="wide")
 
 # 1. VERİ MOTORU (Borsa, Dolar, Altın)
 @st.cache_data(ttl=300)
