@@ -5,8 +5,8 @@ import pytz
 import pandas as pd
 
 # Sayfa Ayarları
-st.set_page_config(page_title="YA 34 YA 39 | Akıllı Terminal", layout="wide")
-st.header("YA 34 YA 39", anchor=False)
+
+st.header("Y A 3 4 Y A 3 9", anchor=False)
 
 # 1. VERİ MOTORU (Borsa, Dolar, Altın)
 @st.cache_data(ttl=300)
