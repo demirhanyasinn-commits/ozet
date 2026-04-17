@@ -3,7 +3,9 @@ import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-datetime.now(ZoneInfo("Europe/Istanbul"))
+simdi = datetime.now(ZoneInfo("Europe/Istanbul"))
+
+st.caption(f"Son güncelleme: {simdi.strftime('%d.%m.%Y %H:%M:%S')}")
 
 st.set_page_config(layout="wide")
 
