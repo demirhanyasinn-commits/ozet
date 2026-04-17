@@ -121,7 +121,7 @@ def tahmin(fon, piyasa):
 # -------------------------------------------------
 # 🎨 UI
 # -------------------------------------------------
-st.title("📊 Y A 3 4  Y A 3 9")
+st.title("▄︻デ══━一💥 Y A 3 4  Y A 3 9")
 
 piyasa = piyasa_verisi()
 simdi = simdi_tr()
