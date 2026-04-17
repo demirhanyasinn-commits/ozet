@@ -16,58 +16,46 @@ def simdi_tr():
 # -------------------------------------------------
 def borsa_acik_mi():
     now = simdi_tr()
+    if now.weekday() >= 5: return False
+    return time(10, 0) <= now.time() <= int_to_time(18, 10)
 
-    if now.weekday() >= 5:
-        return False
-
-    acilis = time(10, 0)
-    kapanis = time(18, 10)
-
-    return acilis <= now.time() <= kapanis
+def int_to_time(h, m): return time(h, m)
 
 # -------------------------------------------------
-# 📡 PİYASA VERİSİ (API BAĞLANABİLİR)
+# 📡 PİYASA VERİSİ
 # -------------------------------------------------
 @st.cache_data(ttl=60)
 def piyasa_verisi():
+    # Burada manuel veri giriyorsun, ileride buraya bir API bağlaman isabeti artırır.
     return {
-        "bank": 1.20,       # XBANK
-        "sanayi": -0.30,    # XUSIN
+        "bank": 1.20,
+        "sanayi": -0.30,
         "teknoloji": -1.80,
         "usd": -0.06,
         "altin": 0.38
     }
 
 # -------------------------------------------------
-# 🔥 TEFAS PORTFÖY ÇEK (GERÇEK)
+# 🔥 TEFAS PORTFÖY ÇEK
 # -------------------------------------------------
 @st.cache_data(ttl=86400)
 def tefas_portfoy(fon):
     try:
         url = "https://www.tefas.gov.tr/api/DB/BindPortfolio"
         payload = {"fontur": "", "fonkod": fon}
-
         res = requests.post(url, json=payload, timeout=10).json()
 
         hisse = doviz = altin = faiz = 0
-
         for i in res.get("data", []):
             tur = i.get("TUR", "")
             oran = float(i.get("ORAN", 0))
-
-            if "Hisse" in tur:
-                hisse += oran
-            elif "Döviz" in tur:
-                doviz += oran
-            elif "Altın" in tur:
-                altin += oran
-            else:
-                faiz += oran
+            if "Hisse" in tur: hisse += oran
+            elif "Döviz" in tur or "Yabancı" in tur: doviz += oran
+            elif "Altın" in tur: altin += oran
+            else: faiz += oran
 
         toplam = hisse + doviz + altin + faiz
-
-        if toplam == 0:
-            return {"hisse": 0.5, "doviz": 0.2, "altin": 0.1, "faiz": 0.2}
+        if toplam == 0: return {"hisse": 0.90, "doviz": 0.05, "altin": 0.0, "faiz": 0.05}
 
         return {
             "hisse": hisse / toplam,
@@ -75,36 +63,41 @@ def tefas_portfoy(fon):
             "altin": altin / toplam,
             "faiz": faiz / toplam
         }
-
     except:
-        return {"hisse": 0.5, "doviz": 0.2, "altin": 0.1, "faiz": 0.2}
+        # Genelde bu fonlar hisse ağırlıklıdır
+        return {"hisse": 0.90, "doviz": 0.05, "altin": 0.0, "faiz": 0.05}
 
 # -------------------------------------------------
-# 🧠 FON KARAKTER MODELİ
+# 🧠 FON KARAKTER MODELİ (Beta Katsayıları Eklendi)
 # -------------------------------------------------
 def hisse_model(fon):
+    # Beta: Fonun endeks hareketine verdiği tepki şiddeti (1.2 = Endeks %1 çıkarsa fon %1.2 çıkar)
     model = {
-        "TLY": {"bank": 0.35, "sanayi": 0.45, "teknoloji": 0.20},
-        "DFI": {"bank": 0.45, "sanayi": 0.35, "teknoloji": 0.20},
-        "PHE": {"bank": 0.10, "sanayi": 0.20, "teknoloji": 0.70},
-        "PBR": {"bank": 0.55, "sanayi": 0.30, "teknoloji": 0.15},
-        "KHA": {"bank": 0.25, "sanayi": 0.50, "teknoloji": 0.25},
+        "TLY": {"bank": 0.40, "sanayi": 0.50, "teknoloji": 0.10, "beta": 1.35},
+        "DFI": {"bank": 0.50, "sanayi": 0.40, "teknoloji": 0.10, "beta": 1.30},
+        "PHE": {"bank": 0.10, "sanayi": 0.10, "teknoloji": 0.80, "beta": 1.15},
+        "PBR": {"bank": 0.60, "sanayi": 0.30, "teknoloji": 0.10, "beta": 1.10},
     }
-    return model.get(fon, {"bank": 0.33, "sanayi": 0.33, "teknoloji": 0.34})
+    return model.get(fon, {"bank": 0.33, "sanayi": 0.33, "teknoloji": 0.34, "beta": 1.0})
 
 # -------------------------------------------------
 # 🔥 ANA HESAPLAMA
 # -------------------------------------------------
 def tahmin(fon, piyasa):
     w = tefas_portfoy(fon)
-    sektor = hisse_model(fon)
+    m = hisse_model(fon)
 
-    hisse_etki = (
-        sektor["bank"] * piyasa["bank"] +
-        sektor["sanayi"] * piyasa["sanayi"] +
-        sektor["teknoloji"] * piyasa["teknoloji"]
+    # Hisse tarafındaki ağırlıklı getiri
+    hisse_getiri = (
+        m["bank"] * piyasa["bank"] +
+        m["sanayi"] * piyasa["sanayi"] +
+        m["teknoloji"] * piyasa["teknoloji"]
     )
 
+    # Beta çarpanı ile agresifliği ayarla
+    hisse_etki = hisse_getiri * m["beta"]
+
+    # Toplam Tahmin
     sonuc = (
         w["hisse"] * hisse_etki +
         w["doviz"] * piyasa["usd"] +
@@ -112,11 +105,11 @@ def tahmin(fon, piyasa):
         w["faiz"] * 0.02
     )
 
-    # 🔴 Borsa kapalıysa stabilize et
-    if not borsa_acik_mi():
-        sonuc *= 0.7
+    # Günlük yönetim ücreti kesintisi (Yaklaşık)
+    yonetim_ucreti = 0.008 
+    sonuc -= yonetim_ucreti
 
-    return round(sonuc, 3)
+    return round(sonuc, 2) # Gerçek sonuçlar genelde 2 hane gösterilir
 
 # -------------------------------------------------
 # 🎨 UI
@@ -125,51 +118,47 @@ st.title("▄︻デ══━一💥 Y A 3 4  Y A 3 9")
 
 piyasa = piyasa_verisi()
 simdi = simdi_tr()
-
-durum = "🟢 Borsa Açık" if borsa_acik_mi() else "🔴 Borsa Kapalı"
+acik = borsa_acik_mi()
+durum = "🟢 Borsa Açık" if acik else "🔴 Borsa Kapalı"
 
 st.markdown(f"""
-<div style="display:flex;gap:20px;background:#111;padding:10px;border-radius:10px;">
-<div>{durum}</div>
-<div>🏦 Banka: %{piyasa['bank']}</div>
-<div>🏭 Sanayi: %{piyasa['sanayi']}</div>
-<div>💻 Teknoloji: %{piyasa['teknoloji']}</div>
-<div>💵 USD: %{piyasa['usd']}</div>
-<div>🥇 Altın: %{piyasa['altin']}</div>
+<div style="display:flex; justify-content: space-between; background:#111; padding:15px; border-radius:10px; border: 1px solid #333;">
+    <div style="font-weight:bold; color:#fff;">{durum}</div>
+    <div style="color:#00ff88;">🏦 Banka: %{piyasa['bank']}</div>
+    <div style="color:#ffcc00;">🏭 Sanayi: %{piyasa['sanayi']}</div>
+    <div style="color:#00d4ff;">💻 Tekno: %{piyasa['teknoloji']}</div>
+    <div style="color:#ff4d4d;">💵 USD: %{piyasa['usd']}</div>
+    <div style="color:#ffd700;">🥇 Altın: %{piyasa['altin']}</div>
 </div>
 """, unsafe_allow_html=True)
 
-fonlar = ["TLY", "DFI", "PHE", "PBR"]
+st.write("") # Boşluk
 
+fonlar = ["TLY", "DFI", "PHE", "PBR"]
 cols = st.columns(len(fonlar))
 
 for i, fon in enumerate(fonlar):
     try:
         sonuc = tahmin(fon, piyasa)
     except:
-        sonuc = 0
+        sonuc = 0.0
 
     renk = "#00ff88" if sonuc > 0 else "#ff4d4d"
+    ok = "▲" if sonuc > 0 else "▼"
 
     with cols[i]:
         st.markdown(f"""
-        <div style="
-            background:#111;
-            padding:20px;
-            border-radius:15px;
-            border:1px solid #222;
-        ">
-        <h3>{fon}</h3>
-        <p style="opacity:0.6;">GÜN SONU TAHMİN</p>
-        <h1 style="color:{renk};">%{sonuc}</h1>
+        <div style="background:#111; padding:25px; border-radius:15px; border:1px solid #222; text-align:center;">
+            <h2 style="margin:0; color:#eee;">{fon}</h2>
+            <p style="opacity:0.5; font-size:12px; margin-bottom:10px;">GÜN SONU TAHMİN</p>
+            <h1 style="color:{renk}; margin:0; font-size:42px;">%{sonuc}</h1>
+            <p style="color:{renk}; margin:0;">{ok}</p>
         </div>
         """, unsafe_allow_html=True)
 
-st.caption(f"Son güncelleme: {simdi.strftime('%d.%m.%Y %H:%M:%S')}")
+st.markdown("---")
+st.caption(f"Veri Zamanı: {simdi.strftime('%H:%M:%S')} | Tahminler piyasa duyarlılığına (Beta) göre normalize edilmiştir.")
 
-# -------------------------------------------------
-# 🔄 YENİLE BUTONU
-# -------------------------------------------------
 if st.button("🔄 VERİLERİ YENİLE"):
     st.cache_data.clear()
     st.rerun()
