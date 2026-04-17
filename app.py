@@ -1,6 +1,9 @@
 import streamlit as st
 import requests
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+datetime.now(ZoneInfo("Europe/Istanbul"))
 
 st.set_page_config(layout="wide")
 
