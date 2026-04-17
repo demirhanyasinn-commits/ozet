@@ -71,14 +71,43 @@ def tefas_portfoy(fon):
 # 🧠 FON KARAKTER MODELİ (Beta Katsayıları Eklendi)
 # -------------------------------------------------
 def hisse_model(fon):
-    # Beta: Fonun endeks hareketine verdiği tepki şiddeti (1.2 = Endeks %1 çıkarsa fon %1.2 çıkar)
     model = {
         "TLY": {"bank": 0.40, "sanayi": 0.50, "teknoloji": 0.10, "beta": 1.35},
         "DFI": {"bank": 0.50, "sanayi": 0.40, "teknoloji": 0.10, "beta": 1.30},
         "PHE": {"bank": 0.10, "sanayi": 0.10, "teknoloji": 0.80, "beta": 1.15},
         "PBR": {"bank": 0.60, "sanayi": 0.30, "teknoloji": 0.10, "beta": 1.10},
+        "KHA": {"bank": 0.25, "sanayi": 0.60, "teknoloji": 0.15, "beta": 1.25}, # KHA eklendi
     }
     return model.get(fon, {"bank": 0.33, "sanayi": 0.33, "teknoloji": 0.34, "beta": 1.0})
+
+# ... (Hesaplama fonksiyonu aynı kalacak)
+
+# -------------------------------------------------
+# 🎨 UI - FON LİSTESİ GÜNCELLEME
+# -------------------------------------------------
+# Fon listesine KHA'yı ekledik, kolon sayısı otomatik ayarlanacak
+fonlar = ["TLY", "DFI", "PHE", "PBR", "KHA"]
+
+cols = st.columns(len(fonlar))
+
+for i, fon in enumerate(fonlar):
+    try:
+        sonuc = tahmin(fon, piyasa)
+    except:
+        sonuc = 0.0
+
+    renk = "#00ff88" if sonuc > 0 else "#ff4d4d"
+    ok = "▲" if sonuc > 0 else "▼"
+
+    with cols[i]:
+        st.markdown(f"""
+        <div style="background:#111; padding:20px; border-radius:15px; border:1px solid #222; text-align:center;">
+            <h2 style="margin:0; color:#eee; font-size:20px;">{fon}</h2>
+            <p style="opacity:0.5; font-size:10px; margin-bottom:10px;">GÜN SONU TAHMİN</p>
+            <h1 style="color:{renk}; margin:0; font-size:32px;">%{sonuc}</h1>
+            <p style="color:{renk}; margin:0;">{ok}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # -------------------------------------------------
 # 🔥 ANA HESAPLAMA
