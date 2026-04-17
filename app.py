@@ -86,7 +86,7 @@ def hisse_model(fon):
         "DFI": {"bank": 0.50, "sanayi": 0.40, "teknoloji": 0.10, "beta": 1.32},
         "PHE": {"bank": 0.10, "sanayi": 0.15, "teknoloji": 0.75, "beta": 1.15},
         "PBR": {"bank": 0.60, "sanayi": 0.30, "teknoloji": 0.10, "beta": 1.12},
-        "KHA": {"bank": 0.25, "sanayi": 0.60, "teknoloji": 0.15, "beta": 1.28},
+        "KHA": {"bank": 0.55, "sanayi": 0.35, "teknoloji": 0.10, "beta": 1.20},
     }
     return model.get(fon, {"bank": 0.33, "sanayi": 0.33, "teknoloji": 0.34, "beta": 1.0})
 
