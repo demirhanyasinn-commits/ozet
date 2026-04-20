@@ -67,9 +67,9 @@ def fon_karakteri(fon):
     karakterler = {
         "TLY": {"banka": 0.60, "sanayi": 0.30, "tekno": 0.10, "beta": 1.25}, # Hedef: +1.67
         "DFI": {"banka": 0.30, "sanayi": 0.50, "tekno": 0.20, "beta": 0.65}, # Hedef: +0.48
-        "PHE": {"banka": 0.05, "sanayi": 0.05, "tekno": 0.90, "beta": 1.05}, # Hedef: +1.97
+        "PHE": {"banka": 0.10, "sanayi": 0.10, "tekno": 0.80, "beta": 1.10}, # Hedef: +1.97
         "PBR": {"banka": 0.70, "sanayi": 0.20, "tekno": 0.10, "beta": 0.95}, # Hedef: +1.00
-        "KHA": {"banka": 0.40, "sanayi": 0.50, "tekno": 0.10, "beta": 2.20}  # Hedef: +3.05 (Çok Agresif)
+        "KHA": {"banka": 0.45, "sanayi": 0.45, "tekno": 0.10, "beta": 1.80}  # Hedef: +3.05 (Çok Agresif)
     }
     return karakterler.get(fon, {"banka": 0.33, "sanayi": 0.33, "tekno": 0.34, "beta": 1.10})
 
